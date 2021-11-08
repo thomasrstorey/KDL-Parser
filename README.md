@@ -15,7 +15,7 @@ KDL::Parser - Perl implementation of a KDL parser.
 
 # DESCRIPTION
 
-KDL::Parser is a Perl implementation of the [KDL](https://github.com/kdl-org/kdl) (pronounce like "cuddle") document language.
+KDL::Parser is a Perl implementation of the [KDL](https://github.com/kdl-org/kdl) (pronounced like "cuddle") document language.
 
 # LICENSE
 
