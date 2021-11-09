@@ -42,7 +42,6 @@
       },
       "runtime" : {
          "requires" : {
-            "Regexp::Grammars" : "1.057",
             "perl" : "5.018000"
          }
       },
@@ -53,6 +52,17 @@
       }
    },
    "release_status" : "unstable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/thomasrstorey/KDL-Parser/issues"
+      },
+      "homepage" : "https://github.com/thomasrstorey/KDL-Parser",
+      "repository" : {
+         "type" : "git",
+         "url" : "git://github.com/thomasrstorey/KDL-Parser.git",
+         "web" : "https://github.com/thomasrstorey/KDL-Parser"
+      }
+   },
    "version" : "0.01",
    "x_serialization_backend" : "JSON::PP version 4.06",
    "x_static_install" : 1

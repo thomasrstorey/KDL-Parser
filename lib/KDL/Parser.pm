@@ -39,13 +39,13 @@ sub parse_file {
 }
 
 sub _get_grammar {
-  my $newline = qr/\n\r/;
+  my $newline = qr/\n\r\N{U+000a}-\N{U+00d}\N{U+0085}\N{U+2028}\N{U+2029}/;
   my $unicode_space = qr/\h/;
   my $bom = qr/\N{U+FEFF}/;
   my $single_line_comment = qr{//[^$newline]*};
   my $multi_line_comment = qr{/\*([^*/]|\*(?!/)|(?<!\*)/)*\*/};
   my $whitespace = qr{($bom|$unicode_space|($multi_line_comment))};
-  my $linespace = qr{([$newline]|$whitespace|$single_line_comment)};
+  my $linespace = qr{(\n\r|[$newline]|$whitespace|$single_line_comment)};
 
   my $boolean = qr/(true|false)/;
   my $keyword = qr/(true|false|null)/;
@@ -64,8 +64,15 @@ sub _get_grammar {
       |[-+](?[ \S & [^\/(){}<>;\[\]=,"] & [^0-9] ])$identifier_char*
     )
   /x;
+  my $hex = qr/[-+]?0x$hex_digit($hex_digit|_)*/;
+  my $octal = qr/[-+]?0o[0-7][0-7_]*/;
+  my $binary = qr/[-+]?0b[01][01_]*/;
+  my $integer = qr/[-+]?[0-9][0-9]*/;
+  my $exponent = qr/(E|e)$integer/;
+  my $decimal = qr/$integer(\.[0-9][0-9_]*)?$exponent?/;
+  my $number = qr/($decimal|$hex|$octal|$binary)/;
   return +{
-    newline => qr/[$newline]/,
+    newline => qr/(\n\r|[$newline])/,
     unicode_space => qr/\h/,
     bom => qr/\N{U+FEFF}/,
     single_line_comment => $single_line_comment,
@@ -73,7 +80,8 @@ sub _get_grammar {
     whitespace => $whitespace,
     linespace => $linespace,
     slashdash => qr{/-},
-    identifier => qr{($string|$bare_identifier)}
+    identifier => qr{($string|$bare_identifier)},
+    value => qr{($string|$number|$keyword)}
   };
 }
 
@@ -96,8 +104,35 @@ sub _parse_node {
   my $name = $1;
 
   # props and args
-  # TODO...
-  return $name;
+  my %node_props;
+  my @node_args;
+  while (1) {
+    if (!$self->_parse_nodespace()) {
+      last;
+    }
+    my ($key, $type, $value) = $self->parse_node_prop_or_arg();
+    if ($key) {
+      my @arg = ($type, $value);
+      $node_props{$key} = @arg;
+    } elsif ($value) {
+      push @node_args, ($type, $value);
+    }
+  }
+  $self->_parse_nodespace();
+  my @children = $self->_parse_node_children();
+  $self->_parse_nodespace();
+  $self->_parse_node_terminator();
+  if ($is_sd) {
+    return;
+  }
+
+  return +{
+    name => $name,
+    annotation => $type_annotation,
+    args => \@node_args,
+    props => \%node_props,
+    children => \@children,
+  };
 }
 
 sub _parse_slashdash {
@@ -119,7 +154,7 @@ sub _parse_nodespace {
   while (1) {
     /\G$self->{grammar}->{whitespace}*/mgc;
     if (!$self->_parse_escline()) {
-      break;
+      last;
     }
   }
   return $start != pos();
@@ -146,5 +181,97 @@ sub _parse_type_annotation {
   return $type_annotation;
 }
 
+sub _parse_node_prop_or_arg {
+  my $self = shift;
+
+  my $is_sd = $self->_parse_slashdash();
+  if (/\G
+      (?<key>$self->{grammar}->{identifier})
+      =
+      (\((?<type>$self->{grammar}->{identifier})\))?
+      (?<value>$self->{grammar}->{value})/xmgc and !$is_sd)
+  {
+    return ($+{key}, $+{type}, $+{value});
+  } elsif (/\G
+      (\((?<type>$self->{grammar}->{identifier})\))?
+      (?<value>$self->{grammar}->{value})/xmgc and !$is_sd)
+  {
+    return (0, $+{type}, $+{value});
+  }
+  return (0, 0, 0);
+}
+
+sub _parse_node_children {
+  my $self = shift;
+  my $is_sd = $self->_parse_slashdash();
+  my @children;
+  if (!/\G\{/mgc) {
+    return @children;
+  }
+  while (1) {
+    $self->_parse_linespace();
+    my $child = $self->_parse_node();
+    if ($child) {
+      push @children, $child;
+    } else {
+      last;
+    }
+  }
+  $self->_parse_linespace();
+
+  if (/\G\z/mgc) {
+    my $char = substr $_, pos(), 1;
+    die "Unexpected end of file before node child list terminator.";
+  } elsif (!/\G\{/mgc) {
+    my $char = substr $_, pos(), 1;
+    die "Unexpected character $char at end of node child list.";
+  } elsif ($is_sd) {
+    return [];
+  }
+  return @children;
+}
+
+sub _parse_node_terminator {
+  my $self = shift;
+  if (/\G($self->{grammar}->{newline}|;|\z)/mgc) {
+    return;
+  }
+  my $char = substr $_, pos(), 1;
+  die "Unexpected character $char before node terminator.";
+}
+
 1;
 __END__
+
+=encoding utf-8
+
+=head1 NAME
+
+KDL::Parser - Perl implementation of a KDL parser.
+
+=head1 SYNOPSIS
+
+    use KDL::Parser;
+
+    my $parser = KDL::Parser->new();
+    my $document = $parser->parse_file('path/to/file.kdl');
+    # document is an array of hashes which each represent a node
+    for my $node (@document) {
+      say $node->{name};
+    }
+
+=head1 DESCRIPTION
+
+KDL::Parser is a Perl implementation of the KDL (pronounced like "cuddle") document language.
+Learn more at L<https://github.com/kdl-org/kdl>.
+
+=head1 LICENSE
+
+Copyright (C) Thomas R Storey.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=head1 AUTHOR
+
+Thomas R Storey E<lt>orey.st@protonmail.comE<gt>
