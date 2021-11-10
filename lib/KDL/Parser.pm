@@ -4,9 +4,10 @@ use strict;
 use warnings;
 no warnings "experimental::regex_sets";
 
-use re 'strict';
-
 our $VERSION = "0.01";
+
+use KDL::Parser::Document;
+use KDL::Parser::Node;
 
 sub new {
   my $class = shift;
@@ -19,15 +20,15 @@ sub parse {
 
   $self->_parse_linespace();
 
-  my @document;
+  my $document = KDL::Parser::Document->new();
   until (/\G\z/mgc) {
     if (my $node = $self->_parse_node()) {
-      push @document, $node;
+      $document->push($node);
     }
     $self->_parse_linespace();
   }
 
-  return @document;
+  return $document;
 }
 
 sub parse_file {
@@ -125,14 +126,14 @@ sub _parse_node {
   if ($is_sd) {
     return;
   }
-
-  return +{
+  my %node_hash = (
     name => $name,
-    annotation => $type_annotation,
+    type => $type_annotation,
     args => \@node_args,
     props => \%node_props,
     children => \@children,
-  };
+  );
+  return KDL::Parser::Node->new(%node_hash);
 }
 
 sub _parse_slashdash {
