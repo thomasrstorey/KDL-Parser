@@ -5,8 +5,11 @@ use strict;
 use warnings;
 no warnings "experimental::regex_sets";
 
+use Data::Dumper;
 use Exporter 5.57 'import';
 our @EXPORT_OK = qw/new/;
+
+my $verbose = 0;
 
 sub new {
   my $class = shift;
@@ -19,7 +22,7 @@ sub new {
     children => [],
   );
   while (my ($key, $value) = each %node_hash) {
-    if (exists $node{$key}) {
+    if (exists $node{$key} && defined $value) {
       $node{$key} = $value;
     }
   }
@@ -33,8 +36,13 @@ sub print {
   if ($self->{type}) {
     $out .= "($self->{type})";
   }
-  $out .= $self->_format_identifier($self->{name});
-  for my $arg (@{$self->{args}}) {
+  my $name = $self->_format_identifier($self->{name});
+  $out .= $name;
+  for my $arg ($self->{args}) {
+    if (scalar(@{$arg}) == 0) {
+      last;
+    }
+    warn Dumper($arg) if $verbose;
     $out .= ' ';
     my ($arg_type, $arg_value) = @{$arg};
     $out .= "($arg_type)" if defined $arg_type;
@@ -43,26 +51,29 @@ sub print {
   my @sorted_keys = sort keys(%{$self->{props}});
   for my $prop_key (@sorted_keys) {
     $out .= ' ';
+    $out .= "$prop_key=";
     my ($prop_type, $prop_value) = @{$self->{props}{$prop_key}};
-    $out .= "";
     $out .= "($prop_type)" if defined $prop_type;
-    $out .= $prop_value;
+    $out .= "$prop_value";
   }
   if (scalar @{$self->{children}}) {
     $out .= " {\n";
-    foreach ($self->{children}) {
-      $out .= $_->print($depth + 1);
+    for my $child (@{$self->{children}}) {
+      $out .= $child->print($depth + 1);
     }
     $out .= " " x ($depth * 4);
-    $out .= "}\n";
+    $out .= "}";
   }
+  $out .= "\n";
   return $out;
 }
 
 sub _format_identifier {
-  my $self = shift;
-  if (!/^(?[ \S & [^\/(){}<>;\[\]=,"] ])+$/) {
-    return qq{"$_"};
+  my ($self, $ident) = @_;
+  if ($ident !~ /^(?[ \S & [^\/(){}<>;\[\]=,"] ])+$/) {
+    return qq{"$ident"};
   }
-  return $_;
+  return $ident;
 }
+
+1;

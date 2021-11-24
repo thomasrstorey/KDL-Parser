@@ -6,8 +6,11 @@ no warnings "experimental::regex_sets";
 
 our $VERSION = "0.01";
 
+use Data::Dumper;
 use KDL::Parser::Document;
 use KDL::Parser::Node;
+
+my $verbose = 0;
 
 sub new {
   my $class = shift;
@@ -21,7 +24,7 @@ sub parse {
   $self->_parse_linespace();
 
   my $document = KDL::Parser::Document->new();
-  until (/\G\z/mgc) {
+  until (/\G\z/mgc || (pos() || 0) >= length()) {
     if (my $node = $self->_parse_node()) {
       $document->push($node);
     }
@@ -46,7 +49,7 @@ sub _get_grammar {
   my $single_line_comment = qr{//[^$newline]*};
   my $multi_line_comment = qr{/\*([^*/]|\*(?!/)|(?<!\*)/)*\*/};
   my $whitespace = qr{($bom|$unicode_space|($multi_line_comment))};
-  my $linespace = qr{(\n\r|[$newline]|$whitespace|$single_line_comment)};
+  my $linespace = qr{(\r\n|\n\r|[$newline]|$whitespace|$single_line_comment)};
 
   my $boolean = qr/(true|false)/;
   my $keyword = qr/(true|false|null)/;
@@ -73,7 +76,7 @@ sub _get_grammar {
   my $decimal = qr/$integer(\.[0-9][0-9_]*)?$exponent?/;
   my $number = qr/($decimal|$hex|$octal|$binary)/;
   return +{
-    newline => qr/(\n\r|[$newline])/,
+    newline => qr/(\r\n|\n\r|[$newline])/,
     unicode_space => qr/\h/,
     bom => qr/\N{U+FEFF}/,
     single_line_comment => $single_line_comment,
@@ -111,10 +114,10 @@ sub _parse_node {
     if (!$self->_parse_nodespace()) {
       last;
     }
-    my ($key, $type, $value) = $self->parse_node_prop_or_arg();
+    my ($key, $type, $value) = $self->_parse_node_prop_or_arg();
     if ($key) {
       my @arg = ($type, $value);
-      $node_props{$key} = @arg;
+      $node_props{$key} = \@arg;
     } elsif ($value) {
       push @node_args, ($type, $value);
     }
@@ -133,7 +136,9 @@ sub _parse_node {
     props => \%node_props,
     children => \@children,
   );
-  return KDL::Parser::Node->new(%node_hash);
+  my $node = KDL::Parser::Node->new(%node_hash);
+  warn Dumper($node) if $verbose;
+  return $node;
 }
 
 sub _parse_slashdash {
@@ -220,10 +225,9 @@ sub _parse_node_children {
   }
   $self->_parse_linespace();
 
-  if (/\G\z/mgc) {
-    my $char = substr $_, pos(), 1;
+  if (/\G\z/mgc || pos() >= length()) {
     die "Unexpected end of file before node child list terminator.";
-  } elsif (!/\G\{/mgc) {
+  } elsif (!/\G\}/mgc) {
     my $char = substr $_, pos(), 1;
     die "Unexpected character $char at end of node child list.";
   } elsif ($is_sd) {
@@ -234,11 +238,27 @@ sub _parse_node_children {
 
 sub _parse_node_terminator {
   my $self = shift;
-  if (/\G($self->{grammar}->{newline}|;|\z)/mgc) {
+  if (/\G($self->{grammar}->{newline}|;|\z)/mgc || pos() >= length() - 1) {
     return;
   }
   my $char = substr $_, pos(), 1;
-  die "Unexpected character $char before node terminator.";
+  my ($lineno, $colno) = $self->_get_pos();
+  die "Unexpected character \"$char\" before node terminator ($lineno,$colno).";
+}
+
+sub _get_pos {
+  my $self = shift;
+  my $line = 1;
+  my $col = 1;
+  for my $i (0..pos()) {
+    my $char = substr($_, $i, 1);
+    $col += 1;
+    if ($char eq "\n") {
+      $line += 1;
+      $col = 1;
+    }
+  }
+  return ($line, $col);
 }
 
 1;

@@ -16,12 +16,15 @@ sub new {
 sub print {
   my $self = shift;
   my $out = '';
-  foreach ($self->{nodes}) {
-    $out .= $_->print();
+  for my $node (@{$self->{nodes}}) {
+    $out .= $node->print();
   }
+  return $out;
 }
 
 sub push {
   my $self = shift;
   push @{$self->{nodes}}, @_;
 }
+
+1;
