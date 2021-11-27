@@ -56,8 +56,8 @@ sub _get_grammar {
   my $hex_digit = qr/[0-9a-fA-F]/;
   my $escape = qr{(["\\/bfnrt]|u\{$hex_digit{1,6}\})};
   my $character = qr{(\\$escape|[^\"])};
-  my $escaped_string = qr{"($character*)"};
-  my $raw_string_hash = qr/(#*)"(.*)"\1/;
+  my $escaped_string = qr{"($<escaped>$character*)"};
+  my $raw_string_hash = qr/(#*)"($<raw>.*)"\1/;
   my $raw_string = qr/r$raw_string_hash/;
   my $string = qr{$raw_string|$escaped_string};
   my $identifier_char = qr/(?[ \S & [^\/(){}<>;\[\]=,"] ])/;
@@ -85,7 +85,10 @@ sub _get_grammar {
     linespace => $linespace,
     slashdash => qr{/-},
     identifier => qr{($string|$bare_identifier)},
-    value => qr{($string|$number|$keyword)}
+    value => qr{($string|$number|$keyword)},
+    raw_string => $raw_string,
+    escaped_string => $escaped_string,
+    bare_identifier => $bare_identifier
   };
 }
 
@@ -197,14 +200,39 @@ sub _parse_node_prop_or_arg {
       (\((?<type>$self->{grammar}->{identifier})\))?
       (?<value>$self->{grammar}->{value})/xmgc and !$is_sd)
   {
-    return ($+{key}, $+{type}, $+{value});
+    my $type = $self->_parse_ident($+{type});
+    return ($self->_parse_ident($+{key}), $type, $self->_parse_value($+{value}, $type));
   } elsif (/\G
       (\((?<type>$self->{grammar}->{identifier})\))?
       (?<value>$self->{grammar}->{value})/xmgc and !$is_sd)
   {
-    return (0, $+{type}, $+{value});
+    my $type = $self->_parse_ident($+{type});
+    return (0, $type, $self->_parse_value(+{value}, $type));
   }
   return (0, 0, 0);
+}
+
+sub _parse_ident {
+  my ($self, $str) = @_;
+  # str may be a raw string r##"..."## escaped string "..." or bare identifier.
+  if ($str =~ /^$self->{grammar}->{raw_string}$/) {
+    return $+{raw};
+  } elsif ($str =~ /^$self->{grammar}->{escaped_string}$/) {
+    my $unesc = "";
+    for $i (0..length($+{escaped}) - 1) {
+      $reverse_solidus = substr($+{escaped}, $i, 1);
+      if ($reverse_solidus eq "\\") {
+        $esc_char = substr($+{escaped}, $i + 1);
+        if ($esc_char eq "n") {
+          $unesc .= "\n"
+          # TODO: unescape the rest of the escape codes.
+          # see: https://github.com/tabatkins/kdlpy/blob/e6343e64c46fc98be8bbbe615f09ad42f16f2fda/kdl/parsefuncs.py#L445
+        }
+
+      }
+    }
+  }
+
 }
 
 sub _parse_node_children {
