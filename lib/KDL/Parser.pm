@@ -6,6 +6,7 @@ no warnings "experimental::regex_sets";
 
 our $VERSION = "0.01";
 
+use Carp;
 use Data::Dumper;
 use KDL::Parser::Document;
 use KDL::Parser::Node;
@@ -37,7 +38,7 @@ sub parse {
 sub parse_file {
   my ($self, $filepath) = @_;
 
-  open my $kdl_fh, '<:encoding(UTF-8)', $filepath or die $!;
+  open my $kdl_fh, '<:encoding(UTF-8)', $filepath or croak($!);
   my $kdl_src = do { local $/ = undef; <$kdl_fh> };
   $self->parse($kdl_src);
 }
@@ -75,6 +76,8 @@ sub _get_grammar {
   my $exponent = qr/(E|e)$integer/;
   my $decimal = qr/$integer(\.[0-9][0-9_]*)?$exponent?/;
   my $number = qr/($decimal|$hex|$octal|$binary)/;
+  my $integer_types = qr/([iu](8|16|32|64|size))/;
+  my $float_types = qr/(f(32|64)|decimal(64|128))/;
   return +{
     newline => qr/(\r\n|\n\r|[$newline])/,
     unicode_space => qr/\h/,
@@ -88,7 +91,14 @@ sub _get_grammar {
     value => qr{($string|$number|$keyword)},
     raw_string => $raw_string,
     escaped_string => $escaped_string,
-    bare_identifier => $bare_identifier
+    bare_identifier => $bare_identifier,
+    escape => $escape,
+    string => $string,
+    number => $number,
+    keyword => $keyword,
+    integer_types => $integer_types,
+    float_types => $float_types,
+    numeric_types => qr{($integer_types|$float_types)}
   };
 }
 
@@ -207,32 +217,118 @@ sub _parse_node_prop_or_arg {
       (?<value>$self->{grammar}->{value})/xmgc and !$is_sd)
   {
     my $type = $self->_parse_ident($+{type});
-    return (0, $type, $self->_parse_value(+{value}, $type));
+    return (0, $type, $self->_parse_value($+{value}, $type));
   }
   return (0, 0, 0);
 }
 
 sub _parse_ident {
   my ($self, $str) = @_;
-  # str may be a raw string r##"..."## escaped string "..." or bare identifier.
+  return 0 unless $str;
+  # $str may be a raw string r##"..."## escaped string "..." or bare identifier.
   if ($str =~ /^$self->{grammar}->{raw_string}$/) {
     return $+{raw};
   } elsif ($str =~ /^$self->{grammar}->{escaped_string}$/) {
-    my $unesc = "";
-    for $i (0..length($+{escaped}) - 1) {
-      $reverse_solidus = substr($+{escaped}, $i, 1);
-      if ($reverse_solidus eq "\\") {
-        $esc_char = substr($+{escaped}, $i + 1);
-        if ($esc_char eq "n") {
-          $unesc .= "\n"
-          # TODO: unescape the rest of the escape codes.
-          # see: https://github.com/tabatkins/kdlpy/blob/e6343e64c46fc98be8bbbe615f09ad42f16f2fda/kdl/parsefuncs.py#L445
-        }
+    my $esc = $+{escaped};
+    return $self->_unescape_string($esc);
+  }
+  $self->_parse_error("Malformed identifier.");
+}
 
+sub _unescape_string {
+  my ($self, $esc) = @_;
+
+  my $unesc = "";
+  for (my $i = 0; $i <= length($esc) - 1; $i += 1) {
+    my $reverse_solidus = substr($esc, $i, 1);
+    if ($reverse_solidus eq "\\") {
+      my $esc_char = substr($esc, $i + 1);
+      $i += 1 if ($esc_char =~ /$self->{grammar}->{escape}/);
+      if ($esc_char eq "n") {
+        $unesc .= "\n";
+      } elsif ($esc_char eq "r") {
+        $unesc .= "\r";
+      } elsif ($esc_char eq "t") {
+        $unesc .= "\t";
+      } elsif ($esc_char eq "b") {
+        $unesc .= "\b";
+      } elsif ($esc_char eq "f") {
+        $unesc .= "\f";
+      } elsif ($esc_char eq "\\") {
+        $unesc .= "\\";
+      } elsif ($esc_char eq "/") {
+        $unesc .= "/";
+      } elsif ($esc_char eq '"') {
+        $unesc .= '"';
+      } elsif ($esc_char eq "u") {
+        my $unicode_esc = substr($esc, $i);
+        if ($unicode_esc =~ /^\{([a-f0-9]{1,6})\}/i) {
+          $unesc .= pack('U*', hex($1));
+        } else {
+          $self->_parse_error("Malformed unicode escape sequence.");
+        }
+      } else {
+        $self->_parse_error("Malformed character escape.");
       }
     }
   }
+  return $unesc;
+}
 
+sub _parse_value {
+  my ($self, $value, $type) = @_;
+
+  if ($value =~ /$self->{grammar}->{string}/i) {
+    if (defined $type && $type =~ /$self->{grammar}->{numeric_types}/) {
+      $self->_parse_error("Non-numeric value annotated with reserved numeric type ($type).");
+    }
+    # TODO: Validate and interpret value with type if provided
+    if (defined $+{raw}) {
+      return $+{raw};
+    } elsif (defined $+{escaped}) {
+      return $self->_unescape_string($+{unescaped});
+    }
+  } elsif ($value =~ /$self->{grammar}->{number}/) {
+    if (defined $type && $type =~ /$self->{grammar}->{string_types}/) {
+      $self->_parse_error("Numeric value annotated with reserved string type ($type).");
+    }
+    # TODO: Validate and interpret value with type if provided
+    my $sign = $value =~ /^[-+]/;
+    my $numeric_value = 0;
+    if ($sign) {
+      $value =~ s/^[-+]//;
+    }
+    if ($value =~ /x/) {
+      $numeric_value = hex($value);
+    } elsif ($value =~ /o/) {
+      $numeric_value = oct($value);
+    } elsif ($value =~ /b/) {
+      my @bitstring = split("b", $value);
+      my $bitstring = $bitstring[1];
+      my $bslen = length($bitstring);
+      for (my $l = 8; $l < 512; $l += 8) {
+        if ($bslen < $l) {
+          $bitstring = ('0' x ($l - $bslen)) . $bitstring;
+          last;
+        }
+      }
+      $numeric_value = ord(pack(length($bitstring), $bitstring));
+    } else {
+      $numeric_value = $value + 0;
+    }
+    if ($sign eq '-') {
+      return -1 * $numeric_value;
+    }
+    return $numeric_value;
+  } elsif ($value =~ /$self->{grammar}->{keyword}/) {
+    if ($value eq 'true') {
+      return 1;
+    } elsif ($value eq 'false') {
+      return 0;
+    } elsif ($value eq 'null') {
+      return undef;
+    }
+  }
 }
 
 sub _parse_node_children {
@@ -254,10 +350,10 @@ sub _parse_node_children {
   $self->_parse_linespace();
 
   if (/\G\z/mgc || pos() >= length()) {
-    die "Unexpected end of file before node child list terminator.";
+    $self->_parse_error("Unexpected end of file before node child list terminator.");
   } elsif (!/\G\}/mgc) {
     my $char = substr $_, pos(), 1;
-    die "Unexpected character $char at end of node child list.";
+    $self->_parse_error("Unexpected character $char at end of node child list.");
   } elsif ($is_sd) {
     return [];
   }
@@ -270,8 +366,7 @@ sub _parse_node_terminator {
     return;
   }
   my $char = substr $_, pos(), 1;
-  my ($lineno, $colno) = $self->_get_pos();
-  die "Unexpected character \"$char\" before node terminator ($lineno,$colno).";
+  $self->_parse_error("Unexpected character $char before node terminator.");
 }
 
 sub _get_pos {
@@ -287,6 +382,13 @@ sub _get_pos {
     }
   }
   return ($line, $col);
+}
+
+sub _parse_error {
+  my ($self, $message) = shift;
+
+  my ($lineno, $colno) = $self->_get_pos();
+  croak("$message At: ($lineno, $colno)");
 }
 
 1;
