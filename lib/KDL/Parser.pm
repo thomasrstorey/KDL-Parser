@@ -10,6 +10,8 @@ use Carp;
 use Data::Dumper;
 use KDL::Parser::Document;
 use KDL::Parser::Node;
+use KDL::Parser::Value;
+use KDL::Parser::Error qw(parse_error);
 
 my $verbose = 0;
 
@@ -127,12 +129,11 @@ sub _parse_node {
     if (!$self->_parse_nodespace()) {
       last;
     }
-    my ($key, $type, $value) = $self->_parse_node_prop_or_arg();
+    my ($key, $value) = $self->_parse_node_prop_or_arg();
     if ($key) {
-      my @arg = ($type, $value);
-      $node_props{$key} = \@arg;
+      $node_props{$key} = $value;
     } elsif ($value) {
-      push @node_args, ($type, $value);
+      push @node_args, $value;
     }
   }
   $self->_parse_nodespace();
@@ -211,13 +212,17 @@ sub _parse_node_prop_or_arg {
       (?<value>$self->{grammar}->{value})/xmgc and !$is_sd)
   {
     my $type = $self->_parse_ident($+{type});
-    return ($self->_parse_ident($+{key}), $type, $self->_parse_value($+{value}, $type));
+
+    return (
+      $self->_parse_ident($+{key}),
+      KDL::Parser::Value->new((kdl_data => $+{value}, type => $type))
+    );
   } elsif (/\G
       (\((?<type>$self->{grammar}->{identifier})\))?
       (?<value>$self->{grammar}->{value})/xmgc and !$is_sd)
   {
     my $type = $self->_parse_ident($+{type});
-    return (0, $type, $self->_parse_value($+{value}, $type));
+    return (0, KDL::Parser::Value->new((kdl_data => $+{value}, type => $type)));
   }
   return (0, 0, 0);
 }
@@ -230,49 +235,9 @@ sub _parse_ident {
     return $+{raw};
   } elsif ($str =~ /^$self->{grammar}->{escaped_string}$/) {
     my $esc = $+{escaped};
-    return $self->_unescape_string($esc);
+    return unescape_string($esc);
   }
-  $self->_parse_error("Malformed identifier.");
-}
-
-sub _unescape_string {
-  my ($self, $esc) = @_;
-
-  my $unesc = "";
-  for (my $i = 0; $i <= length($esc) - 1; $i += 1) {
-    my $reverse_solidus = substr($esc, $i, 1);
-    if ($reverse_solidus eq "\\") {
-      my $esc_char = substr($esc, $i + 1);
-      $i += 1 if ($esc_char =~ /$self->{grammar}->{escape}/);
-      if ($esc_char eq "n") {
-        $unesc .= "\n";
-      } elsif ($esc_char eq "r") {
-        $unesc .= "\r";
-      } elsif ($esc_char eq "t") {
-        $unesc .= "\t";
-      } elsif ($esc_char eq "b") {
-        $unesc .= "\b";
-      } elsif ($esc_char eq "f") {
-        $unesc .= "\f";
-      } elsif ($esc_char eq "\\") {
-        $unesc .= "\\";
-      } elsif ($esc_char eq "/") {
-        $unesc .= "/";
-      } elsif ($esc_char eq '"') {
-        $unesc .= '"';
-      } elsif ($esc_char eq "u") {
-        my $unicode_esc = substr($esc, $i);
-        if ($unicode_esc =~ /^\{([a-f0-9]{1,6})\}/i) {
-          $unesc .= pack('U*', hex($1));
-        } else {
-          $self->_parse_error("Malformed unicode escape sequence.");
-        }
-      } else {
-        $self->_parse_error("Malformed character escape.");
-      }
-    }
-  }
-  return $unesc;
+  parse_error("Malformed identifier.");
 }
 
 sub _parse_value {
@@ -280,7 +245,7 @@ sub _parse_value {
 
   if ($value =~ /$self->{grammar}->{string}/i) {
     if (defined $type && $type =~ /$self->{grammar}->{numeric_types}/) {
-      $self->_parse_error("Non-numeric value annotated with reserved numeric type ($type).");
+      parse_error("Non-numeric value annotated with reserved numeric type ($type).");
     }
     # TODO: Validate and interpret value with type if provided
     if (defined $+{raw}) {
@@ -290,7 +255,7 @@ sub _parse_value {
     }
   } elsif ($value =~ /$self->{grammar}->{number}/) {
     if (defined $type && $type =~ /$self->{grammar}->{string_types}/) {
-      $self->_parse_error("Numeric value annotated with reserved string type ($type).");
+      parse_error("Numeric value annotated with reserved string type ($type).");
     }
     # TODO: Validate and interpret value with type if provided
     my $sign = $value =~ /^[-+]/;
@@ -350,10 +315,10 @@ sub _parse_node_children {
   $self->_parse_linespace();
 
   if (/\G\z/mgc || pos() >= length()) {
-    $self->_parse_error("Unexpected end of file before node child list terminator.");
+    parse_error("Unexpected end of file before node child list terminator.");
   } elsif (!/\G\}/mgc) {
     my $char = substr $_, pos(), 1;
-    $self->_parse_error("Unexpected character $char at end of node child list.");
+    parse_error("Unexpected character $char at end of node child list.");
   } elsif ($is_sd) {
     return [];
   }
@@ -366,29 +331,7 @@ sub _parse_node_terminator {
     return;
   }
   my $char = substr $_, pos(), 1;
-  $self->_parse_error("Unexpected character $char before node terminator.");
-}
-
-sub _get_pos {
-  my $self = shift;
-  my $line = 1;
-  my $col = 1;
-  for my $i (0..pos()) {
-    my $char = substr($_, $i, 1);
-    $col += 1;
-    if ($char eq "\n") {
-      $line += 1;
-      $col = 1;
-    }
-  }
-  return ($line, $col);
-}
-
-sub _parse_error {
-  my ($self, $message) = shift;
-
-  my ($lineno, $colno) = $self->_get_pos();
-  croak("$message At: ($lineno, $colno)");
+  parse_error("Unexpected character $char before node terminator.");
 }
 
 1;

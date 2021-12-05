@@ -6,6 +6,7 @@ use warnings;
 no warnings "experimental::regex_sets";
 
 use Data::Dumper;
+use KDL::Parser::Util qw(format_identifier);
 use Exporter 5.57 'import';
 our @EXPORT_OK = qw/new/;
 
@@ -36,23 +37,12 @@ sub print {
   if ($self->{type}) {
     $out .= "($self->{type})";
   }
-  my $name = $self->_format_identifier($self->{name});
+  my $name = format_identifier($self->{name});
   $out .= $name;
   for my $arg ($self->{args}) {
-    if (scalar(@{$arg}) == 0) {
-      last;
-    }
     warn Dumper($arg) if $verbose;
     $out .= ' ';
-    my ($arg_type, $arg_value) = @{$arg};
-    if (defined $arg_type) {
-      $arg_type = $self->_format_identifier($arg_type);
-      $out .= "($arg_type)";
-    }
-    # TODO: need to know if $arg_value is a string or a number, which apparently in perl
-    # is kinda hard to do. If it's a string we need to escape the string and wrap it
-    # in quotes.
-    $out .= $arg_value;
+    $out .= $arg->print();
   }
   my @sorted_keys = sort keys(%{$self->{props}});
   for my $prop_key (@sorted_keys) {
@@ -72,14 +62,6 @@ sub print {
   }
   $out .= "\n";
   return $out;
-}
-
-sub _format_identifier {
-  my ($self, $ident) = @_;
-  if ($ident !~ /^(?[ \S & [^\/(){}<>;\[\]=,"] ])+$/) {
-    return qq{"$ident"};
-  }
-  return $ident;
 }
 
 1;
