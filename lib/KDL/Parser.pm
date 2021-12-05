@@ -13,7 +13,7 @@ use KDL::Parser::Node;
 use KDL::Parser::Value;
 use KDL::Parser::Error qw(parse_error);
 
-my $verbose = 0;
+my $verbose = 1;
 
 sub new {
   my $class = shift;
@@ -59,8 +59,8 @@ sub _get_grammar {
   my $hex_digit = qr/[0-9a-fA-F]/;
   my $escape = qr{(["\\/bfnrt]|u\{$hex_digit{1,6}\})};
   my $character = qr{(\\$escape|[^\"])};
-  my $escaped_string = qr{"($<escaped>$character*)"};
-  my $raw_string_hash = qr/(#*)"($<raw>.*)"\1/;
+  my $escaped_string = qr{"(?<escaped>$character*)"};
+  my $raw_string_hash = qr/(#*)"(?<raw>.*)"\1/;
   my $raw_string = qr/r$raw_string_hash/;
   my $string = qr{$raw_string|$escaped_string};
   my $identifier_char = qr/(?[ \S & [^\/(){}<>;\[\]=,"] ])/;
@@ -236,6 +236,8 @@ sub _parse_ident {
   } elsif ($str =~ /^$self->{grammar}->{escaped_string}$/) {
     my $esc = $+{escaped};
     return unescape_string($esc);
+  } elsif ($str =~ /^$self->{grammar}->{bare_identifier}$/) {
+    return $str;
   }
   parse_error("Malformed identifier.");
 }

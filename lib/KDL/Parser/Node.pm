@@ -10,7 +10,7 @@ use KDL::Parser::Util qw(format_identifier);
 use Exporter 5.57 'import';
 our @EXPORT_OK = qw/new/;
 
-my $verbose = 0;
+my $verbose = 1;
 
 sub new {
   my $class = shift;
@@ -39,7 +39,7 @@ sub print {
   }
   my $name = format_identifier($self->{name});
   $out .= $name;
-  for my $arg ($self->{args}) {
+  for my $arg (@{$self->{args}}) {
     warn Dumper($arg) if $verbose;
     $out .= ' ';
     $out .= $arg->print();

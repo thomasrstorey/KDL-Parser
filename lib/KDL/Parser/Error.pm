@@ -21,8 +21,8 @@ sub _get_pos {
 }
 
 sub parse_error {
-  my ($self, $message) = shift;
+  my $message = shift;
 
-  my ($lineno, $colno) = $self->_get_pos();
+  my ($lineno, $colno) = _get_pos();
   croak("$message At: ($lineno, $colno)");
 }

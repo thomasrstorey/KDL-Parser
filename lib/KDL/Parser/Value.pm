@@ -20,8 +20,8 @@ sub _get_grammar {
   my $hex_digit = qr/[0-9a-fA-F]/;
   my $escape = qr{(["\\/bfnrt]|u\{$hex_digit{1,6}\})};
   my $character = qr{(\\$escape|[^\"])};
-  my $escaped_string = qr{"($<escaped>$character*)"};
-  my $raw_string_hash = qr/(#*)"($<raw>.*)"\1/;
+  my $escaped_string = qr{"(?<escaped>$character*)"};
+  my $raw_string_hash = qr/(#*)"(?<raw>.*)"\1/;
   my $raw_string = qr/r$raw_string_hash/;
   my $string = qr{$raw_string|$escaped_string};
   my $identifier_char = qr/(?[ \S & [^\/(){}<>;\[\]=,"] ])/;
@@ -62,12 +62,12 @@ sub _get_grammar {
 sub new {
   my $class = shift;
   my %kwargs = @_;
-  my %self = {
+  my %self = (
     'kdl_type' => '', # the base type of the value in the document (string, number, boolean, null)
     'kdl_data' => '', # the actual string parsed from the document
     'type' => '', # the type annotation, if any
     'value' => '', # the parsed value
-  };
+  );
 
   while (my ($key, $value) = each %kwargs) {
     if (exists $self{$key} && defined $value) {
@@ -107,7 +107,7 @@ sub _format_value {
       $out .= $self->{value};
     }
     $out = escape_string($out);
-    $out = qr{"$out"};
+    $out = "\"$out\"";
   } elsif ($self->{kdl_type} eq 'number') {
     $out = sprintf("%G", $self->{vale});
   } elsif ($self->{kdl_type} eq 'boolean') {
@@ -115,7 +115,7 @@ sub _format_value {
   } elsif ($self->{kdl_type} eq 'null') {
     $out = 'null';
   } else {
-    croak "Error while formatting value, unknown kdl_type $self->{kdl_type}.";
+    croak "Error while formatting value, unknown kdl_type \"$self->{kdl_type}\".";
   }
   return $out;
 }
@@ -124,7 +124,6 @@ sub _parse {
   my $class = shift;
   my ($value, $type) = @_;
   my $grammar = $class->_get_grammar();
-
   if ($value =~ /$grammar->{string}/i) {
     if (defined $type && $type =~ /$grammar->{numeric_types}/) {
       parse_error("Non-numeric value annotated with reserved numeric type ($type).");
@@ -133,7 +132,8 @@ sub _parse {
     if (defined $+{raw}) {
       return ('string', $+{raw});
     } elsif (defined $+{escaped}) {
-      return ('string', unescape_string($+{unescaped}));
+      carp $+{escaped};
+      return ('string', unescape_string($+{escaped}));
     }
   } elsif ($value =~ /$grammar->{number}/) {
     if (defined $type && $type =~ /$grammar->{string_types}/) {
@@ -176,6 +176,7 @@ sub _parse {
       return ('null', undef);
     }
   }
+  carp "Could not parse value ($value)";
 }
 
 1;
