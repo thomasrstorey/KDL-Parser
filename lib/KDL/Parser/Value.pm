@@ -41,6 +41,31 @@ sub _get_grammar {
   my $number = qr/($decimal|$hex|$octal|$binary)/;
   my $integer_types = qr/([iu](8|16|32|64|size))/;
   my $float_types = qr/(f(32|64)|decimal(64|128))/;
+  my $string_types = qr/(
+    base64
+    |country-2
+    |country-3
+    |country-subdivision
+    |currency
+    |date
+    |date-time
+    |decimal
+    |duration
+    |email
+    |hostname
+    |idn-email
+    |idn-hostname
+    |ipv4
+    |ipv6
+    |irl
+    |irl-reference
+    |regex
+    |time
+    |url
+    |url-reference
+    |url-template
+    |uuid
+    )/x;
   return +{
     unicode_space => qr/\h/,
     bom => qr/\N{U+FEFF}/,
@@ -55,7 +80,8 @@ sub _get_grammar {
     keyword => $keyword,
     integer_types => $integer_types,
     float_types => $float_types,
-    numeric_types => qr{($integer_types|$float_types)}
+    numeric_types => qr{($integer_types|$float_types)},
+    string_types => $string_types,
   };
 }
 
@@ -67,6 +93,7 @@ sub new {
     'kdl_data' => '', # the actual string parsed from the document
     'type' => '', # the type annotation, if any
     'value' => '', # the parsed value
+    'annotated' => 0, # flag to set to 1 if the value has an explicit type annotation
   );
 
   while (my ($key, $value) = each %kwargs) {
@@ -77,6 +104,7 @@ sub new {
 
   if (!$self{value}) {
     my ($kdl_type, $value) = $class->_parse($self{kdl_data}, $self{type});
+    carp $value;
     $self{kdl_type} = $kdl_type;
     $self{value} = $value;
   }
@@ -87,7 +115,7 @@ sub new {
 sub print {
   my $self = shift;
   my $out = '';
-  if ($self->{type}) {
+  if ($self->{annotated}) {
     my $arg_type = format_identifier($self->{type});
     $out .= "($arg_type)";
   }
@@ -109,7 +137,7 @@ sub _format_value {
     $out = escape_string($out);
     $out = "\"$out\"";
   } elsif ($self->{kdl_type} eq 'number') {
-    $out = sprintf("%G", $self->{vale});
+    $out = sprintf("%G", $self->{value});
   } elsif ($self->{kdl_type} eq 'boolean') {
     $out = $self->{value} ? 'true' : 'false';
   } elsif ($self->{kdl_type} eq 'null') {
@@ -132,7 +160,6 @@ sub _parse {
     if (defined $+{raw}) {
       return ('string', $+{raw});
     } elsif (defined $+{escaped}) {
-      carp $+{escaped};
       return ('string', unescape_string($+{escaped}));
     }
   } elsif ($value =~ /$grammar->{number}/) {
@@ -145,6 +172,7 @@ sub _parse {
     if ($sign) {
       $value =~ s/^[-+]//;
     }
+    $value =~ s/_//g;
     if ($value =~ /x/) {
       $numeric_value = hex($value);
     } elsif ($value =~ /o/) {
@@ -159,7 +187,8 @@ sub _parse {
           last;
         }
       }
-      $numeric_value = ord(pack(length($bitstring), $bitstring));
+      my $numbits = length($bitstring);
+      $numeric_value = ord(pack("B$numbits", $bitstring));
     } else {
       $numeric_value = $value + 0;
     }

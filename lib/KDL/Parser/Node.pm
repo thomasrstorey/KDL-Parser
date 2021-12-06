@@ -48,9 +48,8 @@ sub print {
   for my $prop_key (@sorted_keys) {
     $out .= ' ';
     $out .= "$prop_key=";
-    my ($prop_type, $prop_value) = @{$self->{props}{$prop_key}};
-    $out .= "($prop_type)" if defined $prop_type;
-    $out .= "$prop_value";
+    my $prop_value = $self->{props}{$prop_key};
+    $out .= $prop_value->print();
   }
   if (scalar @{$self->{children}}) {
     $out .= " {\n";

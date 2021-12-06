@@ -12,6 +12,7 @@ use KDL::Parser::Document;
 use KDL::Parser::Node;
 use KDL::Parser::Value;
 use KDL::Parser::Error qw(parse_error);
+use KDL::Parser::Util qw(unescape_string);
 
 my $verbose = 1;
 
@@ -46,13 +47,16 @@ sub parse_file {
 }
 
 sub _get_grammar {
+  # TODO: For some reason this is capturing open paren "(" characters??
+  # Either the interpolation is not working as expected or the range is wrong or one
+  # of these unicode characters is, unexpectedly, an open paren???
   my $newline = qr/\n\r\N{U+000a}-\N{U+00d}\N{U+0085}\N{U+2028}\N{U+2029}/;
   my $unicode_space = qr/\h/;
   my $bom = qr/\N{U+FEFF}/;
   my $single_line_comment = qr{//[^$newline]*};
   my $multi_line_comment = qr{/\*([^*/]|\*(?!/)|(?<!\*)/)*\*/};
   my $whitespace = qr{($bom|$unicode_space|($multi_line_comment))};
-  my $linespace = qr{(\r\n|\n\r|[$newline]|$whitespace|$single_line_comment)};
+  my $linespace = qr{(\r\n|\n\r|(?<newline>[$newline])|$whitespace|$single_line_comment)};
 
   my $boolean = qr/(true|false)/;
   my $keyword = qr/(true|false|null)/;
@@ -77,7 +81,7 @@ sub _get_grammar {
   my $integer = qr/[-+]?[0-9][0-9]*/;
   my $exponent = qr/(E|e)$integer/;
   my $decimal = qr/$integer(\.[0-9][0-9_]*)?$exponent?/;
-  my $number = qr/($decimal|$hex|$octal|$binary)/;
+  my $number = qr/($hex|$octal|$binary|$decimal)/;
   my $integer_types = qr/([iu](8|16|32|64|size))/;
   my $float_types = qr/(f(32|64)|decimal(64|128))/;
   return +{
@@ -106,14 +110,20 @@ sub _get_grammar {
 
 sub _parse_linespace {
   my $self = shift;
-  return /\G$self->{grammar}->{linespace}+/mgc;
+  if (/\G$self->{grammar}->{linespace}+/mgc) {
+    if (exists $+{newline}) {
+      carp "CAPTURED NEWLINE ", $+{newline};
+    }
+  }
 }
 
 sub _parse_node {
   my $self = shift;
   # slasdash prefixed?
+  carp "Position before slashdash", pos() || 0;
   my $is_sd = $self->_parse_slashdash();
   # annotated?
+  carp "Position before type annotation", pos() || 0;
   my $type_annotation = $self->_parse_type_annotation();
 
   # node name
@@ -194,11 +204,14 @@ sub _parse_escline {
 
 sub _parse_type_annotation {
   my $self = shift;
+  carp substr($_, pos(), 2);
+  if(/\G\(($self->{grammar}->{identifier})\)/mgc) {
+    carp "TYPE ANNOTATION $1";
+    my $type_annotation = $1;
+    return $type_annotation;
+  }
 
-  /\G\(($self->{grammar}->{identifier})\)/mgc;
-  my $type_annotation = $1;
-
-  return $type_annotation;
+  return 0;
 }
 
 sub _parse_node_prop_or_arg {
@@ -215,14 +228,25 @@ sub _parse_node_prop_or_arg {
 
     return (
       $self->_parse_ident($+{key}),
-      KDL::Parser::Value->new((kdl_data => $+{value}, type => $type))
+      KDL::Parser::Value->new((
+          kdl_data => $+{value},
+          type => $type,
+          annotated => (not (not $+{type}))
+        ))
     );
   } elsif (/\G
       (\((?<type>$self->{grammar}->{identifier})\))?
       (?<value>$self->{grammar}->{value})/xmgc and !$is_sd)
   {
     my $type = $self->_parse_ident($+{type});
-    return (0, KDL::Parser::Value->new((kdl_data => $+{value}, type => $type)));
+    return (
+      0,
+      KDL::Parser::Value->new((
+          kdl_data => $+{value},
+          type => $type,
+          annotated => (not (not $+{type}))
+        ))
+    );
   }
   return (0, 0, 0);
 }

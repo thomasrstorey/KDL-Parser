@@ -23,6 +23,7 @@ sub unescape_string {
       if ($esc_char =~ /$escape/) {
         $i += 1;
       } else {
+        $unesc .= $reverse_solidus;
         next;
       }
       if ($esc_char eq "n") {
@@ -52,6 +53,8 @@ sub unescape_string {
       } else {
         parse_error("Malformed character escape ($esc_char).");
       }
+    } else {
+      $unesc .= substr($esc, $i, 1);
     }
   }
   return $unesc;
@@ -61,7 +64,9 @@ sub escape_string {
   my $str = shift;
   carp $str;
 
-  $str =~ s/\b/\\b/g;
+  $str =~ s/(["\\])/\\$1/g;
+  carp $str;
+  $str =~ s/\cH/\\b/g; # in regex, \b is a word boundary, so we use \cH to match <BS>
   carp $str;
   $str =~ s/\f/\\f/g;
   carp $str;
@@ -70,8 +75,6 @@ sub escape_string {
   $str =~ s/\r/\\r/g;
   carp $str;
   $str =~ s/\t/\\t/g;
-  carp $str;
-  $str =~ s/(['"])/\\$1/g;
   carp $str;
 
   return $str;

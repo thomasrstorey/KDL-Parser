@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use utf8;
 
-use Test::More tests => 1;
+use Test::More tests => 19;
 use KDL::Parser;
 
 my $verbose = 1;
@@ -19,14 +19,12 @@ sub matches_expected {
   my $document = $parser->parse_file("t/kdl/test_cases/input/$fn");
   my $output = $document->print();
   my $expected = read_expected($fn);
-  warn "\n", $output if $verbose;
-  warn "\n", $expected if $verbose;
+  warn "\nOutput:\n", $output if $verbose;
+  warn "\nExpected:\n", $expected if $verbose;
   ok($output eq $expected, "generated kdl matches expected kdl for $fn");
 }
 
 matches_expected('all_escapes.kdl');
-
-=pod
 matches_expected('all_node_fields.kdl');
 matches_expected('arg_and_prop_same_name.kdl');
 matches_expected('arg_false_type.kdl');
@@ -45,6 +43,7 @@ matches_expected('binary_trailing_underscore.kdl');
 matches_expected('binary_underscore.kdl');
 matches_expected('blank_arg_type.kdl');
 matches_expected('blank_node_type.kdl');
+=pod
 matches_expected('blank_prop_type.kdl');
 matches_expected('block_comment_after_node.kdl');
 matches_expected('block_comment_before_node.kdl');
