@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use utf8;
 
-use Test::More tests => 19;
+use Test::More tests => 29;
 use KDL::Parser;
 
 my $verbose = 1;
@@ -43,7 +43,6 @@ matches_expected('binary_trailing_underscore.kdl');
 matches_expected('binary_underscore.kdl');
 matches_expected('blank_arg_type.kdl');
 matches_expected('blank_node_type.kdl');
-=pod
 matches_expected('blank_prop_type.kdl');
 matches_expected('block_comment_after_node.kdl');
 matches_expected('block_comment_before_node.kdl');
@@ -54,6 +53,7 @@ matches_expected('boolean_arg.kdl');
 matches_expected('boolean_prop.kdl');
 matches_expected('commented_arg.kdl');
 matches_expected('commented_child.kdl');
+=pod
 matches_expected('commented_line.kdl');
 matches_expected('commented_node.kdl');
 matches_expected('commented_prop.kdl');

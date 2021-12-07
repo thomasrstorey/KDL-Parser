@@ -16,8 +16,12 @@ sub new {
 sub print {
   my $self = shift;
   my $out = '';
-  for my $node (@{$self->{nodes}}) {
-    $out .= $node->print();
+  if (scalar @{$self->{nodes}}) {
+    for my $node (@{$self->{nodes}}) {
+      $out .= $node->print();
+    }
+  } else {
+    $out .= "\n";
   }
   return $out;
 }

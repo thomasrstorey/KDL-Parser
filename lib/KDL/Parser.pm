@@ -50,7 +50,7 @@ sub _get_grammar {
   # TODO: For some reason this is capturing open paren "(" characters??
   # Either the interpolation is not working as expected or the range is wrong or one
   # of these unicode characters is, unexpectedly, an open paren???
-  my $newline = qr/\n\r\N{U+000a}-\N{U+00d}\N{U+0085}\N{U+2028}\N{U+2029}/;
+  my $newline = '\n\r\N{U+000a}-\N{U+00d}\N{U+0085}\N{U+2028}\N{U+2029}';
   my $unicode_space = qr/\h/;
   my $bom = qr/\N{U+FEFF}/;
   my $single_line_comment = qr{//[^$newline]*};
@@ -111,19 +111,16 @@ sub _get_grammar {
 sub _parse_linespace {
   my $self = shift;
   if (/\G$self->{grammar}->{linespace}+/mgc) {
-    if (exists $+{newline}) {
-      carp "CAPTURED NEWLINE ", $+{newline};
-    }
+    return 1;
   }
+  return 0;
 }
 
 sub _parse_node {
   my $self = shift;
   # slasdash prefixed?
-  carp "Position before slashdash", pos() || 0;
   my $is_sd = $self->_parse_slashdash();
   # annotated?
-  carp "Position before type annotation", pos() || 0;
   my $type_annotation = $self->_parse_type_annotation();
 
   # node name
@@ -170,12 +167,12 @@ sub _parse_slashdash {
 
   my $is_sd = /\G$self->{grammar}->{slashdash}/mgc;
   if (!$is_sd) {
-    return $is_sd;
+    return 0;
   }
 
   $self->_parse_nodespace();
 
-  return $is_sd;
+  return 1;
 }
 
 sub _parse_nodespace {
@@ -204,9 +201,7 @@ sub _parse_escline {
 
 sub _parse_type_annotation {
   my $self = shift;
-  carp substr($_, pos(), 2);
   if(/\G\(($self->{grammar}->{identifier})\)/mgc) {
-    carp "TYPE ANNOTATION $1";
     my $type_annotation = $1;
     return $type_annotation;
   }
@@ -216,7 +211,9 @@ sub _parse_type_annotation {
 
 sub _parse_node_prop_or_arg {
   my $self = shift;
-
+  # TODO: This fails in the case of slashdash before children but after
+  # all args and props. The slashdash is consumed before it can be considered
+  # in the context of the node children.
   my $is_sd = $self->_parse_slashdash();
   if (/\G
       (?<key>$self->{grammar}->{identifier})
@@ -248,7 +245,7 @@ sub _parse_node_prop_or_arg {
         ))
     );
   }
-  return (0, 0, 0);
+  return (0, 0);
 }
 
 sub _parse_ident {
