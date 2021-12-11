@@ -47,9 +47,6 @@ sub parse_file {
 }
 
 sub _get_grammar {
-  # TODO: For some reason this is capturing open paren "(" characters??
-  # Either the interpolation is not working as expected or the range is wrong or one
-  # of these unicode characters is, unexpectedly, an open paren???
   my $newline = '\n\r\N{U+000a}-\N{U+00d}\N{U+0085}\N{U+2028}\N{U+2029}';
   my $unicode_space = qr/\h/;
   my $bom = qr/\N{U+FEFF}/;
@@ -211,18 +208,16 @@ sub _parse_type_annotation {
 
 sub _parse_node_prop_or_arg {
   my $self = shift;
-  # TODO: This fails in the case of slashdash before children but after
-  # all args and props. The slashdash is consumed before it can be considered
-  # in the context of the node children.
+  my $start_pos = pos();
   my $is_sd = $self->_parse_slashdash();
   if (/\G
       (?<key>$self->{grammar}->{identifier})
       =
       (\((?<type>$self->{grammar}->{identifier})\))?
-      (?<value>$self->{grammar}->{value})/xmgc and !$is_sd)
+      (?<value>$self->{grammar}->{value})/xmgc)
   {
     my $type = $self->_parse_ident($+{type});
-
+    return (0, 0) if $is_sd;
     return (
       $self->_parse_ident($+{key}),
       KDL::Parser::Value->new((
@@ -233,9 +228,10 @@ sub _parse_node_prop_or_arg {
     );
   } elsif (/\G
       (\((?<type>$self->{grammar}->{identifier})\))?
-      (?<value>$self->{grammar}->{value})/xmgc and !$is_sd)
+      (?<value>$self->{grammar}->{value})/xmgc)
   {
     my $type = $self->_parse_ident($+{type});
+    return (0, 0) if $is_sd;
     return (
       0,
       KDL::Parser::Value->new((
@@ -244,6 +240,8 @@ sub _parse_node_prop_or_arg {
           annotated => (not (not $+{type}))
         ))
     );
+  } elsif ($is_sd) {
+    pos = $start_pos;
   }
   return (0, 0);
 }
@@ -343,7 +341,8 @@ sub _parse_node_children {
     my $char = substr $_, pos(), 1;
     parse_error("Unexpected character $char at end of node child list.");
   } elsif ($is_sd) {
-    return [];
+    my @empty;
+    return @empty;
   }
   return @children;
 }
