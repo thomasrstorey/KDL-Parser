@@ -61,7 +61,7 @@ sub _get_grammar {
   my $escape = qr{(["\\/bfnrt]|u\{$hex_digit{1,6}\})};
   my $character = qr{(\\$escape|[^\"])};
   my $escaped_string = qr{"(?<escaped>$character*)"};
-  my $raw_string_hash = qr/("(?<raw>[^"]*)"|(#+)"(?<raw>.*)"\2)/;
+  my $raw_string_hash = qr/("(?<raw>[^"]*)"|(?<hashes>#+)"(?<raw>.*)"\k<hashes>)/;
   my $raw_string = qr/r$raw_string_hash/;
   my $string = qr{$raw_string|$escaped_string};
   my $identifier_char = qr/(?[ \S & [^\/(){}<>;\[\]=,"] ])/;
