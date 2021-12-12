@@ -10,7 +10,7 @@ use KDL::Parser::Util qw(format_identifier);
 use Exporter 5.57 'import';
 our @EXPORT_OK = qw/new/;
 
-my $verbose = 1;
+my $verbose = 0;
 
 sub new {
   my $class = shift;
@@ -40,14 +40,14 @@ sub print {
   my $name = format_identifier($self->{name});
   $out .= $name;
   for my $arg (@{$self->{args}}) {
-    warn Dumper($arg) if $verbose;
     $out .= ' ';
     $out .= $arg->print();
   }
   my @sorted_keys = sort keys(%{$self->{props}});
   for my $prop_key (@sorted_keys) {
+    my $formatted_key = format_identifier($prop_key);
     $out .= ' ';
-    $out .= "$prop_key=";
+    $out .= "$formatted_key=";
     my $prop_value = $self->{props}{$prop_key};
     $out .= $prop_value->print();
   }

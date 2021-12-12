@@ -14,7 +14,7 @@ use KDL::Parser::Value;
 use KDL::Parser::Error qw(parse_error);
 use KDL::Parser::Util qw(unescape_string);
 
-my $verbose = 1;
+my $verbose = 0;
 
 sub new {
   my $class = shift;
@@ -66,7 +66,7 @@ sub _get_grammar {
   my $string = qr{$raw_string|$escaped_string};
   my $identifier_char = qr/(?[ \S & [^\/(){}<>;\[\]=,"] ])/;
   my $bare_identifier = qr/
-    (?!$keyword)
+    (?!$keyword ["\s])
     (
       (?[ \S & [^\/(){}<>;\[\]=,"] & [^-+0-9] ])$identifier_char*
       |[-+](?[ \S & [^\/(){}<>;\[\]=,"] & [^0-9] ])$identifier_char*
@@ -75,7 +75,7 @@ sub _get_grammar {
   my $hex = qr/[-+]?0x$hex_digit($hex_digit|_)*/;
   my $octal = qr/[-+]?0o[0-7][0-7_]*/;
   my $binary = qr/[-+]?0b[01][01_]*/;
-  my $integer = qr/[-+]?[0-9][0-9]*/;
+  my $integer = qr/[-+]?[0-9][0-9_]*/;
   my $exponent = qr/(E|e)$integer/;
   my $decimal = qr/$integer(\.[0-9][0-9_]*)?$exponent?/;
   my $number = qr/($hex|$octal|$binary|$decimal)/;
@@ -124,7 +124,7 @@ sub _parse_node {
   if (!/\G($self->{grammar}->{identifier})/mgc) {
     return 0;
   }
-  my $name = $1;
+  my $name = $self->_parse_ident($1);
 
   # props and args
   my %node_props;
@@ -134,7 +134,7 @@ sub _parse_node {
       last;
     }
     my ($key, $value) = $self->_parse_node_prop_or_arg();
-    if ($key) {
+    if (defined $key) {
       $node_props{$key} = $value;
     } elsif ($value) {
       push @node_args, $value;
@@ -155,7 +155,6 @@ sub _parse_node {
     children => \@children,
   );
   my $node = KDL::Parser::Node->new(%node_hash);
-  warn Dumper($node) if $verbose;
   return $node;
 }
 
@@ -193,7 +192,9 @@ sub _parse_escline {
   if (/\G$self->{grammar}->{newline}/mgc) {
     return 1;
   }
-  return /\G$self->{grammar}->{single_line_comment}/mgc;
+  if (/\G$self->{grammar}->{single_line_comment}$self->{grammar}->{newline}/mgc) {
+    return 1;
+  }
 }
 
 sub _parse_type_annotation {
@@ -217,7 +218,7 @@ sub _parse_node_prop_or_arg {
       (?<value>$self->{grammar}->{value})/xmgc)
   {
     my $type = $self->_parse_ident($+{type});
-    return (0, 0) if $is_sd;
+    return (undef, undef) if $is_sd;
     return (
       $self->_parse_ident($+{key}),
       KDL::Parser::Value->new((
@@ -231,9 +232,9 @@ sub _parse_node_prop_or_arg {
       (?<value>$self->{grammar}->{value})/xmgc)
   {
     my $type = $self->_parse_ident($+{type});
-    return (0, 0) if $is_sd;
+    return (undef, undef) if $is_sd;
     return (
-      0,
+      undef,
       KDL::Parser::Value->new((
           kdl_data => $+{value},
           type => $type,
@@ -243,7 +244,7 @@ sub _parse_node_prop_or_arg {
   } elsif ($is_sd) {
     pos = $start_pos;
   }
-  return (0, 0);
+  return (undef, undef);
 }
 
 sub _parse_ident {

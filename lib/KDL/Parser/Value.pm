@@ -7,6 +7,8 @@ no warnings "experimental::regex_sets";
 
 use Carp;
 use Data::Dumper;
+use Math::BigFloat;
+use Math::BigInt;
 use KDL::Parser::Util qw(unescape_string escape_string format_identifier);
 use KDL::Parser::Error qw(parse_error);
 use Exporter 5.57 'import';
@@ -104,7 +106,6 @@ sub new {
 
   if (!$self{value}) {
     my ($kdl_type, $value) = $class->_parse($self{kdl_data}, $self{type});
-    carp $value;
     $self{kdl_type} = $kdl_type;
     $self{value} = $value;
   }
@@ -136,8 +137,17 @@ sub _format_value {
     }
     $out = escape_string($out);
     $out = "\"$out\"";
-  } elsif ($self->{kdl_type} eq 'number') {
-    $out = sprintf("%G", $self->{value});
+  } elsif ($self->{kdl_type} =~ /integer|float/) {
+    if ($self->{value} < 1 && $self->{value} > 0) {
+      $out = $self->{value}->bsstr();
+      $out = uc $out;
+      $out =~ s/^[^\.]*(\d)E/$1.0E/;
+    } else {
+      $out = $self->{value}->bstr();
+    }
+    if ($self->{kdl_type} eq 'float' && $out =~ /^[^.E]+$/) {
+      $out .= ".0";
+    }
   } elsif ($self->{kdl_type} eq 'boolean') {
     $out = $self->{value} ? 'true' : 'false';
   } elsif ($self->{kdl_type} eq 'null') {
@@ -167,35 +177,27 @@ sub _parse {
       parse_error("Numeric value annotated with reserved string type ($type).");
     }
     # TODO: Validate and interpret value with type if provided
-    my $sign = $value =~ /^[-+]/;
+    my $sign = $1 if $value =~ /^([-+])/;
     my $numeric_value = 0;
-    if ($sign) {
+    if (defined $sign) {
       $value =~ s/^[-+]//;
     }
     $value =~ s/_//g;
+    my $kdl_type = 'integer';
     if ($value =~ /x/) {
-      $numeric_value = hex($value);
+      $numeric_value = Math::BigInt->from_hex($value);
     } elsif ($value =~ /o/) {
-      $numeric_value = oct($value);
+      $numeric_value = Math::BigInt->from_oct($value);
     } elsif ($value =~ /b/) {
-      my @bitstring = split("b", $value);
-      my $bitstring = $bitstring[1];
-      my $bslen = length($bitstring);
-      for (my $l = 8; $l < 512; $l += 8) {
-        if ($bslen < $l) {
-          $bitstring = ('0' x ($l - $bslen)) . $bitstring;
-          last;
-        }
-      }
-      my $numbits = length($bitstring);
-      $numeric_value = ord(pack("B$numbits", $bitstring));
+      $numeric_value = Math::BigInt->from_bin($value);
     } else {
-      $numeric_value = $value + 0;
+      $kdl_type = 'float' if $value =~ /\./;
+      $numeric_value = Math::BigFloat->new($value);
     }
-    if ($sign eq '-') {
-      return ('number', -1 * $numeric_value);
+    if (defined $sign && $sign eq '-') {
+      return ($kdl_type, $numeric_value * -1);
     }
-    return ('number', $numeric_value);
+    return ($kdl_type, $numeric_value);
   } elsif ($value =~ /$grammar->{keyword}/) {
     if ($value eq 'true') {
       return ('boolean', 1);

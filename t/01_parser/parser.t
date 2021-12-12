@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use utf8;
 
-use Test::More tests => 29;
+use Test::More tests => 170;
 use KDL::Parser;
 
 my $verbose = 1;
@@ -23,6 +23,10 @@ sub matches_expected {
   warn "\nExpected:\n", $expected if $verbose;
   ok($output eq $expected, "generated kdl matches expected kdl for $fn");
 }
+
+#
+# This space intentionally left blank
+#
 
 matches_expected('all_escapes.kdl');
 matches_expected('all_node_fields.kdl');
@@ -53,7 +57,6 @@ matches_expected('boolean_arg.kdl');
 matches_expected('boolean_prop.kdl');
 matches_expected('commented_arg.kdl');
 matches_expected('commented_child.kdl');
-=pod
 matches_expected('commented_line.kdl');
 matches_expected('commented_node.kdl');
 matches_expected('commented_prop.kdl');
@@ -94,10 +97,10 @@ matches_expected('multiline_string.kdl');
 matches_expected('negative_exponent.kdl');
 matches_expected('negative_float.kdl');
 matches_expected('negative_int.kdl');
-matches_expected('nested_block_comment.kdl');
-matches_expected('nested_children.kdl');
-matches_expected('nested_comments.kdl');
-matches_expected('nested_multiline_block_comment.kdl');
+# matches_expected('nested_block_comment.kdl');
+# matches_expected('nested_children.kdl');
+# matches_expected('nested_comments.kdl');
+# matches_expected('nested_multiline_block_comment.kdl');
 matches_expected('newline_between_nodes.kdl');
 matches_expected('newlines_in_block_comment.kdl');
 matches_expected('no_decimal_exponent.kdl');
@@ -195,6 +198,7 @@ matches_expected('unusual_chars_in_bare_id.kdl');
 matches_expected('zero_arg.kdl');
 matches_expected('zero_float.kdl');
 matches_expected('zero_int.kdl');
+=pod
 =cut
 
 1;

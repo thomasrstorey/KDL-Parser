@@ -43,7 +43,7 @@ sub unescape_string {
       } elsif ($esc_char eq '"') {
         $unesc .= '"';
       } elsif ($esc_char eq "u") {
-        my $unicode_esc = substr($esc, $i);
+        my $unicode_esc = substr($esc, $i + 1);
         if ($unicode_esc =~ /^\{([a-f0-9]{1,6})\}/i) {
           $unesc .= pack('U*', hex($1));
           $i += (length($1) + 2);
@@ -62,20 +62,13 @@ sub unescape_string {
 
 sub escape_string {
   my $str = shift;
-  carp $str;
 
   $str =~ s/(["\\])/\\$1/g;
-  carp $str;
   $str =~ s/\cH/\\b/g; # in regex, \b is a word boundary, so we use \cH to match <BS>
-  carp $str;
   $str =~ s/\f/\\f/g;
-  carp $str;
   $str =~ s/\n/\\n/g;
-  carp $str;
   $str =~ s/\r/\\r/g;
-  carp $str;
   $str =~ s/\t/\\t/g;
-  carp $str;
 
   return $str;
 }
