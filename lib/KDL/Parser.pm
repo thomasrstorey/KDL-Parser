@@ -52,7 +52,7 @@ sub _get_grammar {
   my $bom = qr/\N{U+FEFF}/;
   my $single_line_comment = qr{//[^$newline]*};
   my $multi_line_comment = qr{/\*([^*/]|\*(?!/)|(?<!\*)/)*\*/};
-  my $whitespace = qr{($bom|$unicode_space|($multi_line_comment))};
+  my $whitespace = qr{($bom|$unicode_space)};
   my $linespace = qr{(\r\n|\n\r|(?<newline>[$newline])|$whitespace|$single_line_comment)};
 
   my $boolean = qr/(true|false)/;
@@ -61,7 +61,7 @@ sub _get_grammar {
   my $escape = qr{(["\\/bfnrt]|u\{$hex_digit{1,6}\})};
   my $character = qr{(\\$escape|[^\"])};
   my $escaped_string = qr{"(?<escaped>$character*)"};
-  my $raw_string_hash = qr/(#*)"(?<raw>.*)"\1/;
+  my $raw_string_hash = qr/("(?<raw>[^"]*)"|(#+)"(?<raw>.*)"\2)/;
   my $raw_string = qr/r$raw_string_hash/;
   my $string = qr{$raw_string|$escaped_string};
   my $identifier_char = qr/(?[ \S & [^\/(){}<>;\[\]=,"] ])/;
@@ -107,7 +107,16 @@ sub _get_grammar {
 
 sub _parse_linespace {
   my $self = shift;
-  if (/\G$self->{grammar}->{linespace}+/mgc) {
+  my $op = pos() || 0;
+  while (1) {
+    my $ip = pos() || 0;
+    /\G$self->{grammar}->{linespace}+/mgc;
+    $self->_parse_whitespace();
+    if ($ip == (pos() || 0)) {
+      last;
+    }
+  }
+  if ($op != (pos() || 0)) {
     return 1;
   }
   return 0;
@@ -175,7 +184,7 @@ sub _parse_nodespace {
   my $self = shift;
   my $start = pos();
   while (1) {
-    /\G$self->{grammar}->{whitespace}*/mgc;
+    $self->_parse_whitespace();
     if (!$self->_parse_escline()) {
       last;
     }
@@ -183,12 +192,38 @@ sub _parse_nodespace {
   return $start != pos();
 }
 
+sub _parse_multiline_comment {
+  my $self = shift;
+
+  if (/\G\/\*/mgc) {
+    while (1) {
+      /\G([^*\/]|(?<!\/)\*(?!\/)|(?<!\*)\/(?!\*))*/mgc;
+      $self->_parse_multiline_comment();
+      if (/\G\*\//mgc) {
+        last;
+      }
+    }
+  }
+}
+
+sub _parse_whitespace {
+  my $self = shift;
+  while (1) {
+    my $p = pos() || 0;
+    $self->_parse_multiline_comment();
+    /\G$self->{grammar}->{whitespace}*/mgc;
+    if ($p == (pos() || 0)) {
+      last;
+    }
+  }
+}
+
 sub _parse_escline {
   my $self = shift;
   if (!/\G\\/mgc) {
     return 0;
   }
-  /\G$self->{grammar}->{whitespace}*/mgc;
+  $self->_parse_whitespace();
   if (/\G$self->{grammar}->{newline}/mgc) {
     return 1;
   }

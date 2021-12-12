@@ -27,7 +27,7 @@ sub matches_expected {
 #
 # This space intentionally left blank
 #
-
+=pod
 matches_expected('all_escapes.kdl');
 matches_expected('all_node_fields.kdl');
 matches_expected('arg_and_prop_same_name.kdl');
@@ -97,10 +97,10 @@ matches_expected('multiline_string.kdl');
 matches_expected('negative_exponent.kdl');
 matches_expected('negative_float.kdl');
 matches_expected('negative_int.kdl');
-# matches_expected('nested_block_comment.kdl');
-# matches_expected('nested_children.kdl');
-# matches_expected('nested_comments.kdl');
-# matches_expected('nested_multiline_block_comment.kdl');
+matches_expected('nested_block_comment.kdl');
+matches_expected('nested_children.kdl');
+matches_expected('nested_comments.kdl');
+matches_expected('nested_multiline_block_comment.kdl');
 matches_expected('newline_between_nodes.kdl');
 matches_expected('newlines_in_block_comment.kdl');
 matches_expected('no_decimal_exponent.kdl');
@@ -142,7 +142,9 @@ matches_expected('raw_arg_type.kdl');
 matches_expected('raw_node_name.kdl');
 matches_expected('raw_node_type.kdl');
 matches_expected('raw_prop_type.kdl');
+=cut
 matches_expected('raw_string_arg.kdl');
+=pod
 matches_expected('raw_string_backslash.kdl');
 matches_expected('raw_string_hash_no_esc.kdl');
 matches_expected('raw_string_just_backslash.kdl');
@@ -198,7 +200,6 @@ matches_expected('unusual_chars_in_bare_id.kdl');
 matches_expected('zero_arg.kdl');
 matches_expected('zero_float.kdl');
 matches_expected('zero_int.kdl');
-=pod
 =cut
 
 1;
