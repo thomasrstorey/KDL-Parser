@@ -77,7 +77,10 @@ sub format_identifier {
   # 'All identifiers must be unquoted unless they must be quoted.
   # That means "foo" becomes foo, and "foo bar" stays that way.'
   my $ident = shift;
-  if ($ident !~ /^(?[ \S & [^\/(){}<>;\[\]=,"] ])+$/) {
+  $ident = escape_string($ident);
+  if ($ident !~ /^(?[ \S & [^\/\\(){}<>;\[\]=,"] ])+$/) {
+    return qq{"$ident"};
+  } elsif ($ident =~ /^[-+0-9]/) {
     return qq{"$ident"};
   }
   return $ident;

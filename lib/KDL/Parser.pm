@@ -64,12 +64,12 @@ sub _get_grammar {
   my $raw_string_hash = qr/("(?<raw>[^"]*)"|(?<hashes>#+)"(?<raw>.*)"\k<hashes>)/;
   my $raw_string = qr/r$raw_string_hash/;
   my $string = qr{$raw_string|$escaped_string};
-  my $identifier_char = qr/(?[ \S & [^\/(){}<>;\[\]=,"] ])/;
+  my $identifier_char = qr/(?[ \S & [^\/\\(){}<>;\[\]=,"] ])/;
   my $bare_identifier = qr/
     (?!$keyword ["\s])
     (
-      (?[ \S & [^\/(){}<>;\[\]=,"] & [^-+0-9] ])$identifier_char*
-      |[-+](?[ \S & [^\/(){}<>;\[\]=,"] & [^0-9] ])$identifier_char*
+      (?[ \S & [^\/\\(){}<>;\[\]=,"] & [^-+0-9] ])$identifier_char*
+      |[-+](?[ \S & [^\/\\(){}<>;\[\]=,"] & [^0-9] ])$identifier_char*
     )
   /x;
   my $hex = qr/[-+]?0x$hex_digit($hex_digit|_)*/;
