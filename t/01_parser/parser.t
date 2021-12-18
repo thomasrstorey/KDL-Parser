@@ -17,7 +17,9 @@ sub matches_expected {
   my $fn = shift;
   my $parser = KDL::Parser->new();
   my $document = $parser->parse_file("t/kdl/test_cases/input/$fn");
-  my $output = $document->print();
+  my $config;
+  $config->{preserve_formatting} = 1;
+  my $output = $document->print($config);
   my $expected = read_expected($fn);
   warn "\nOutput:\n", $output if $verbose;
   warn "\nExpected:\n", $expected if $verbose;

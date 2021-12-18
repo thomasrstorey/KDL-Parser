@@ -31,7 +31,7 @@ sub new {
 }
 
 sub print {
-  my ($self, $depth) = @_;
+  my ($self, $depth, $config) = @_;
   $depth = 0 if not defined $depth;
   my $out = ' ' x ($depth * 4);
   if ($self->{type}) {
@@ -41,7 +41,7 @@ sub print {
   $out .= $name;
   for my $arg (@{$self->{args}}) {
     $out .= ' ';
-    $out .= $arg->print();
+    $out .= $arg->print($config);
   }
   my @sorted_keys = sort keys(%{$self->{props}});
   for my $prop_key (@sorted_keys) {
@@ -49,12 +49,12 @@ sub print {
     $out .= ' ';
     $out .= "$formatted_key=";
     my $prop_value = $self->{props}{$prop_key};
-    $out .= $prop_value->print();
+    $out .= $prop_value->print($config);
   }
   if (scalar @{$self->{children}}) {
     $out .= " {\n";
     for my $child (@{$self->{children}}) {
-      $out .= $child->print($depth + 1);
+      $out .= $child->print($depth + 1, $config);
     }
     $out .= " " x ($depth * 4);
     $out .= "}";

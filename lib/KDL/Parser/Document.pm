@@ -14,11 +14,11 @@ sub new {
 }
 
 sub print {
-  my $self = shift;
+  my ($self, $config) = @_;
   my $out = '';
   if (scalar @{$self->{nodes}}) {
     for my $node (@{$self->{nodes}}) {
-      $out .= $node->print();
+      $out .= $node->print(0, $config);
     }
   } else {
     $out .= "\n";
