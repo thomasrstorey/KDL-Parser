@@ -356,15 +356,20 @@ KDL::Parser - Perl implementation of a KDL parser.
 
     my $parser = KDL::Parser->new();
     my $document = $parser->parse_file('path/to/file.kdl');
-    # document is an array of hashes which each represent a node
-    for my $node (@document) {
+    # document is a hash with a `nodes` property
+    for my $node (@{$document->{nodes}}) {
       say $node->{name};
     }
+    $document->print();
 
 =head1 DESCRIPTION
 
 KDL::Parser is a Perl implementation of the KDL (pronounced like "cuddle") document language.
 Learn more at L<https://github.com/kdl-org/kdl>.
+
+Currently it should be compatible with the KDL spec in terms of parsing and printing. However,
+in this early release there is no type handling outside of that required to handle string,
+number, and keyword values appropriately for pretty-printing.
 
 =head1 LICENSE
 
