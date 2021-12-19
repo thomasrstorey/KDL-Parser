@@ -7,7 +7,6 @@ no warnings "experimental::regex_sets";
 our $VERSION = "0.01";
 
 use Carp;
-use Data::Dumper;
 use KDL::Parser::Document;
 use KDL::Parser::Node;
 use KDL::Parser::Value;
@@ -131,6 +130,10 @@ sub _parse_node {
 
   # node name
   if (!/\G($self->{grammar}->{identifier})/mgc) {
+    # invalid to find an escline after a node terminator but before a new node
+    if (/\G\\/mgc) {
+      parse_error("Invalid line escape outside of node.");
+    }
     return 0;
   }
   my $name = $self->_parse_ident($1);
@@ -237,6 +240,8 @@ sub _parse_type_annotation {
   if(/\G\(($self->{grammar}->{identifier})\)/mgc) {
     my $type_annotation = $1;
     return $type_annotation;
+  } elsif (/\G(\(.*\))/mgc) {
+    parse_error("Malformed type annotation: $1.");
   }
 
   return 0;
@@ -297,62 +302,6 @@ sub _parse_ident {
   parse_error("Malformed identifier.");
 }
 
-sub _parse_value {
-  my ($self, $value, $type) = @_;
-
-  if ($value =~ /$self->{grammar}->{string}/i) {
-    if (defined $type && $type =~ /$self->{grammar}->{numeric_types}/) {
-      parse_error("Non-numeric value annotated with reserved numeric type ($type).");
-    }
-    # TODO: Validate and interpret value with type if provided
-    if (defined $+{raw}) {
-      return $+{raw};
-    } elsif (defined $+{escaped}) {
-      return $self->_unescape_string($+{unescaped});
-    }
-  } elsif ($value =~ /$self->{grammar}->{number}/) {
-    if (defined $type && $type =~ /$self->{grammar}->{string_types}/) {
-      parse_error("Numeric value annotated with reserved string type ($type).");
-    }
-    # TODO: Validate and interpret value with type if provided
-    my $sign = $value =~ /^[-+]/;
-    my $numeric_value = 0;
-    if ($sign) {
-      $value =~ s/^[-+]//;
-    }
-    if ($value =~ /x/) {
-      $numeric_value = hex($value);
-    } elsif ($value =~ /o/) {
-      $numeric_value = oct($value);
-    } elsif ($value =~ /b/) {
-      my @bitstring = split("b", $value);
-      my $bitstring = $bitstring[1];
-      my $bslen = length($bitstring);
-      for (my $l = 8; $l < 512; $l += 8) {
-        if ($bslen < $l) {
-          $bitstring = ('0' x ($l - $bslen)) . $bitstring;
-          last;
-        }
-      }
-      $numeric_value = ord(pack(length($bitstring), $bitstring));
-    } else {
-      $numeric_value = $value + 0;
-    }
-    if ($sign eq '-') {
-      return -1 * $numeric_value;
-    }
-    return $numeric_value;
-  } elsif ($value =~ /$self->{grammar}->{keyword}/) {
-    if ($value eq 'true') {
-      return 1;
-    } elsif ($value eq 'false') {
-      return 0;
-    } elsif ($value eq 'null') {
-      return undef;
-    }
-  }
-}
-
 sub _parse_node_children {
   my $self = shift;
   my $is_sd = $self->_parse_slashdash();
@@ -385,7 +334,7 @@ sub _parse_node_children {
 
 sub _parse_node_terminator {
   my $self = shift;
-  if (/\G($self->{grammar}->{newline}|;|\z)/mgc || pos() >= length() - 1) {
+  if (/\G($self->{grammar}->{newline}|;|\z)/mgc || pos() == length()) {
     return;
   }
   my $char = substr $_, pos(), 1;

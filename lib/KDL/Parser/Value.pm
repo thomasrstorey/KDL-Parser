@@ -6,7 +6,6 @@ use warnings;
 no warnings "experimental::regex_sets";
 
 use Carp;
-use Data::Dumper;
 use Math::BigFloat;
 use Math::BigInt;
 use KDL::Parser::Util qw(unescape_string escape_string format_identifier);
@@ -141,7 +140,6 @@ sub _format_value {
     $out = "\"$out\"";
   } elsif ($self->{kdl_type} =~ /integer|float/) {
     $out = $self->{value}->bstr();
-    warn "KDL DATA: ", $self->{kdl_data};
     if (
       $config->{preserve_formatting}
       && $self->{kdl_data} =~ /^$grammar->{decimal}$/i
@@ -156,9 +154,9 @@ sub _format_value {
         # at least on digit to the right. If we need to add a 0 after the decimal point, do so.
         my @out = split(/e/i, $out);
         if (length($out[0]) == 1) {
-          @out[0] .= '.0';
+          $out[0] .= '.0';
         } else {
-          @out[0] = substr(@out[0], 0, 1) . '.' . substr(@out[0], 1);
+          $out[0] = substr($out[0], 0, 1) . '.' . substr($out[0], 1);
         }
         # Join back into a string with the decimal part formatted correctly, but wrong exponent part.
         $out = join('E', @out);
@@ -232,6 +230,9 @@ sub _parse {
       $kdl_type = 'float' if $value =~ /\./;
       $numeric_value = Math::BigFloat->new($value);
     }
+    if ($numeric_value eq 'NaN') {
+      parse_error("Invalid value: $value");
+    }
     if (defined $sign && $sign eq '-') {
       return ($kdl_type, $numeric_value * -1);
     }
@@ -245,7 +246,7 @@ sub _parse {
       return ('null', undef);
     }
   }
-  carp "Could not parse value ($value)";
+  parse_error("Could not parse value ($value)");
 }
 
 1;

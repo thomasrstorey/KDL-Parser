@@ -2,10 +2,11 @@ use strict;
 use warnings;
 use utf8;
 
-use Test::More tests => 170;
+use Test::More tests => 224;
+use Test::Exception;
 use KDL::Parser;
 
-my $verbose = 1;
+my $verbose = 0;
 
 sub read_expected {
   my $fn = shift;
@@ -26,11 +27,18 @@ sub matches_expected {
   ok($output eq $expected, "generated kdl matches expected kdl for $fn");
 }
 
-#
-# This space intentionally left blank
-#
+sub fails_to_parse {
+  my $fn = shift;
+  my $parser = KDL::Parser->new();
+  warn "Expect $fn to fail\n" if $verbose;
+  throws_ok(
+    sub { $parser->parse_file("t/kdl/test_cases/input/$fn") },
+    qr//i,
+    "invalid input kdl throws an exception for $fn"
+  );
+}
 
-matches_expected('all_escapes.kdl');
+
 matches_expected('all_node_fields.kdl');
 matches_expected('arg_and_prop_same_name.kdl');
 matches_expected('arg_false_type.kdl');
@@ -200,5 +208,61 @@ matches_expected('unusual_chars_in_bare_id.kdl');
 matches_expected('zero_arg.kdl');
 matches_expected('zero_float.kdl');
 matches_expected('zero_int.kdl');
+
+fails_to_parse('backslash_in_bare_id.kdl');
+fails_to_parse('bare_arg.kdl');
+fails_to_parse('brackets_in_bare_id.kdl');
+fails_to_parse('chevrons_in_bare_id.kdl');
+fails_to_parse('comma_in_bare_id.kdl');
+fails_to_parse('comment_after_arg_type.kdl');
+fails_to_parse('comment_after_node_type.kdl');
+fails_to_parse('comment_after_prop_type.kdl');
+fails_to_parse('comment_in_arg_type.kdl');
+fails_to_parse('comment_in_node_type.kdl');
+fails_to_parse('comment_in_prop_type.kdl');
+fails_to_parse('dash_dash.kdl');
+fails_to_parse('dot_but_no_fraction_before_exponent.kdl');
+fails_to_parse('dot_but_no_fraction.kdl');
+fails_to_parse('dot_in_exponent.kdl');
+fails_to_parse('dot_zero.kdl');
+fails_to_parse('empty_arg_type.kdl');
+fails_to_parse('empty_node_type.kdl');
+fails_to_parse('empty_prop_type.kdl');
+fails_to_parse('escline_comment_node.kdl');
+fails_to_parse('false_prop_key.kdl');
+fails_to_parse('illegal_char_in_binary.kdl');
+fails_to_parse('illegal_char_in_hex.kdl');
+fails_to_parse('illegal_char_in_octal.kdl');
+fails_to_parse('just_space_in_arg_type.kdl');
+fails_to_parse('just_space_in_node_type.kdl');
+fails_to_parse('just_space_in_prop_type.kdl');
+fails_to_parse('just_type_no_arg.kdl');
+fails_to_parse('just_type_no_node_id.kdl');
+fails_to_parse('just_type_no_prop.kdl');
+fails_to_parse('multiple_dots_in_float_before_exponent.kdl');
+fails_to_parse('multiple_dots_in_float.kdl');
+fails_to_parse('multiple_es_in_float.kdl');
+fails_to_parse('multiple_x_in_hex.kdl');
+fails_to_parse('no_digits_in_hex.kdl');
+fails_to_parse('null_prop_key.kdl');
+fails_to_parse('parens_in_bare_id.kdl');
+fails_to_parse('question_mark_at_start_of_int.kdl');
+fails_to_parse('question_mark_before_number.kdl');
+fails_to_parse('quote_in_bare_id.kdl');
+fails_to_parse('slash_in_bare_id.kdl');
+fails_to_parse('space_after_arg_type.kdl');
+fails_to_parse('space_after_node_type.kdl');
+fails_to_parse('space_after_prop_type.kdl');
+fails_to_parse('space_in_arg_type.kdl');
+fails_to_parse('space_in_node_type.kdl');
+fails_to_parse('space_in_prop_type.kdl');
+fails_to_parse('square_bracket_in_bare_id.kdl');
+fails_to_parse('true_prop_key.kdl');
+fails_to_parse('type_before_prop_key.kdl');
+fails_to_parse('unbalanced_raw_hashes.kdl');
+fails_to_parse('underscore_at_start_of_fraction.kdl');
+fails_to_parse('underscore_at_start_of_hex.kdl');
+fails_to_parse('underscore_at_start_of_int.kdl');
+fails_to_parse('underscore_before_number.kdl');
 
 1;

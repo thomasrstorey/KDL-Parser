@@ -5,7 +5,6 @@ use strict;
 use warnings;
 no warnings "experimental::regex_sets";
 
-use Data::Dumper;
 use KDL::Parser::Util qw(format_identifier);
 use Exporter 5.57 'import';
 our @EXPORT_OK = qw/new/;
