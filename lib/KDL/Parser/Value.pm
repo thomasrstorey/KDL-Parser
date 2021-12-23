@@ -113,7 +113,7 @@ sub new {
   return bless \%self, $class;
 }
 
-sub print {
+sub to_kdl {
   my ($self, $config) = @_;
   my $out = '';
   if ($self->{annotated}) {

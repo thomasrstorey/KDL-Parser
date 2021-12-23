@@ -20,7 +20,7 @@ sub matches_expected {
   my $document = $parser->parse_file("t/kdl/test_cases/input/$fn");
   my $config;
   $config->{preserve_formatting} = 1;
-  my $output = $document->print($config);
+  my $output = $document->to_kdl($config);
   my $expected = read_expected($fn);
   warn "\nOutput:\n", $output if $verbose;
   warn "\nExpected:\n", $expected if $verbose;

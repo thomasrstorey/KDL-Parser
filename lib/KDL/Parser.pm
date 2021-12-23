@@ -21,14 +21,14 @@ sub new {
 }
 
 sub parse {
-  my ($self, $input) = @_;
+  my ($self, $input, $config) = @_;
   local $_ = $input;
 
   $self->_parse_linespace();
 
   my $document = KDL::Parser::Document->new();
   until (/\G\z/mgc || (pos() || 0) >= length()) {
-    if (my $node = $self->_parse_node()) {
+    if (my $node = $self->_parse_node($config)) {
       $document->push($node);
     }
     $self->_parse_linespace();
@@ -38,11 +38,11 @@ sub parse {
 }
 
 sub parse_file {
-  my ($self, $filepath) = @_;
+  my ($self, $filepath, $config) = @_;
 
   open my $kdl_fh, '<:encoding(UTF-8)', $filepath or croak($!);
   my $kdl_src = do { local $/ = undef; <$kdl_fh> };
-  $self->parse($kdl_src);
+  $self->parse($kdl_src, $config);
 }
 
 sub _get_grammar {
@@ -122,7 +122,7 @@ sub _parse_linespace {
 }
 
 sub _parse_node {
-  my $self = shift;
+  my ($self, $config) = @_;
   # slasdash prefixed?
   my $is_sd = $self->_parse_slashdash();
   # annotated?
@@ -145,7 +145,7 @@ sub _parse_node {
     if (!$self->_parse_nodespace()) {
       last;
     }
-    my ($key, $value) = $self->_parse_node_prop_or_arg();
+    my ($key, $value) = $self->_parse_node_prop_or_arg($config);
     if (defined $key) {
       $node_props{$key} = $value;
     } elsif ($value) {
@@ -153,7 +153,7 @@ sub _parse_node {
     }
   }
   $self->_parse_nodespace();
-  my @children = $self->_parse_node_children();
+  my @children = $self->_parse_node_children($config);
   $self->_parse_nodespace();
   $self->_parse_node_terminator();
   if ($is_sd) {
@@ -166,7 +166,19 @@ sub _parse_node {
     props => \%node_props,
     children => \@children,
   );
+
+  # If there is a custom node type for this node, replace the node with the return from the custom
+  # node type callback.
+  if (
+    defined $node_hash{type}
+    && defined $config->{custom_node_types}
+    && defined $config->{custom_node_types}->{$node_hash{type}}
+  ) {
+    my $node = \&config->{custom_node_types}->{$node_hash{type}}(%node_hash);
+    return $node;
+  }
   my $node = KDL::Parser::Node->new(%node_hash);
+
   return $node;
 }
 
@@ -248,7 +260,7 @@ sub _parse_type_annotation {
 }
 
 sub _parse_node_prop_or_arg {
-  my $self = shift;
+  my ($self, $config) = @_;
   my $start_pos = pos();
   my $is_sd = $self->_parse_slashdash();
   if (/\G
@@ -351,7 +363,7 @@ __END__
 KDL::Parser - Perl implementation of a KDL parser.
 
 =head1 SYNOPSIS
-
+```perl
     use KDL::Parser;
 
     my $parser = KDL::Parser->new();
@@ -360,8 +372,8 @@ KDL::Parser - Perl implementation of a KDL parser.
     for my $node (@{$document->{nodes}}) {
       say $node->{name};
     }
-    $document->print();
-
+    $document->to_kdl();
+```
 =head1 DESCRIPTION
 
 KDL::Parser is a Perl implementation of the KDL (pronounced like "cuddle") document language.

@@ -13,22 +13,22 @@ sub new {
   return bless {nodes => \@nodes}, $class;
 }
 
-sub print {
+sub push {
+  my $self = shift;
+  push @{$self->{nodes}}, @_;
+}
+
+sub to_kdl {
   my ($self, $config) = @_;
   my $out = '';
   if (scalar @{$self->{nodes}}) {
     for my $node (@{$self->{nodes}}) {
-      $out .= $node->print(0, $config);
+      $out .= $node->to_string(0, $config);
     }
   } else {
     $out .= "\n";
   }
   return $out;
-}
-
-sub push {
-  my $self = shift;
-  push @{$self->{nodes}}, @_;
 }
 
 1;

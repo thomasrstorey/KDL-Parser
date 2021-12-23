@@ -29,7 +29,7 @@ sub new {
   return bless \%node, $class;
 }
 
-sub print {
+sub to_kdl {
   my ($self, $depth, $config) = @_;
   $depth = 0 if not defined $depth;
   my $out = ' ' x ($depth * 4);
@@ -40,7 +40,7 @@ sub print {
   $out .= $name;
   for my $arg (@{$self->{args}}) {
     $out .= ' ';
-    $out .= $arg->print($config);
+    $out .= $arg->to_kdl($config);
   }
   my @sorted_keys = sort keys(%{$self->{props}});
   for my $prop_key (@sorted_keys) {
@@ -48,12 +48,12 @@ sub print {
     $out .= ' ';
     $out .= "$formatted_key=";
     my $prop_value = $self->{props}{$prop_key};
-    $out .= $prop_value->print($config);
+    $out .= $prop_value->to_kdl($config);
   }
   if (scalar @{$self->{children}}) {
     $out .= " {\n";
     for my $child (@{$self->{children}}) {
-      $out .= $child->print($depth + 1, $config);
+      $out .= $child->to_kdl($depth + 1, $config);
     }
     $out .= " " x ($depth * 4);
     $out .= "}";
