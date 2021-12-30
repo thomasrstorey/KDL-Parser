@@ -3,7 +3,7 @@
 KDL::Parser - Perl implementation of a KDL parser.
 
 # SYNOPSIS
-
+\`\`\`perl
     use KDL::Parser;
 
     my $parser = KDL::Parser->new();
@@ -12,9 +12,9 @@ KDL::Parser - Perl implementation of a KDL parser.
     for my $node (@{$document->{nodes}}) {
       say $node->{name};
     }
-    $document->print();
-
-# DESCRIPTION
+    $document->to_kdl();
+```
+=head1 DESCRIPTION
 
 KDL::Parser is a Perl implementation of the KDL (pronounced like "cuddle") document language.
 Learn more at [https://github.com/kdl-org/kdl](https://github.com/kdl-org/kdl).

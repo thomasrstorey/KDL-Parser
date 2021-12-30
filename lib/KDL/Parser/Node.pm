@@ -7,7 +7,7 @@ no warnings "experimental::regex_sets";
 
 use KDL::Parser::Util qw(format_identifier);
 use Exporter 5.57 'import';
-our @EXPORT_OK = qw/new/;
+our @EXPORT_OK = qw/new get_node_type_tags/;
 
 my $verbose = 0;
 
@@ -60,6 +60,17 @@ sub to_kdl {
   }
   $out .= "\n";
   return $out;
+}
+
+sub get_node_type_tags {
+  my $config = shift;
+  my $standard_type_tags = {
+    # Nothing yet!
+  };
+  if (defined $config->{node_type_tags}) {
+    return { %{$standard_type_tags}, %{$config->{node_type_tags}} };
+  }
+  return $standard_type_tags;
 }
 
 1;

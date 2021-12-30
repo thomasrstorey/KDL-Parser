@@ -23,7 +23,7 @@ sub to_kdl {
   my $out = '';
   if (scalar @{$self->{nodes}}) {
     for my $node (@{$self->{nodes}}) {
-      $out .= $node->to_string(0, $config);
+      $out .= $node->to_kdl(0, $config);
     }
   } else {
     $out .= "\n";

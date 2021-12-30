@@ -8,27 +8,35 @@ our $VERSION = "0.01";
 
 use Carp;
 use KDL::Parser::Document;
-use KDL::Parser::Node;
-use KDL::Parser::Value;
+use KDL::Parser::Node qw(get_node_type_tags);
+use KDL::Parser::Value qw(get_value_type_tags);
+use KDL::Parser::Value::Any;
 use KDL::Parser::Error qw(parse_error);
 use KDL::Parser::Util qw(unescape_string);
+
+use Exporter 5.57 'import';
+our @EXPORT_OK = qw/new/;
 
 my $verbose = 0;
 
 sub new {
-  my $class = shift;
-  return bless {grammar => $class->_get_grammar()}, $class;
+  my ($class, $config) = shift;
+  return bless {
+    grammar => $class->_get_grammar(),
+    value_type_tags => get_value_type_tags($config),
+    node_type_tags => get_node_type_tags($config),
+  }, $class;
 }
 
 sub parse {
-  my ($self, $input, $config) = @_;
+  my ($self, $input) = @_;
   local $_ = $input;
 
   $self->_parse_linespace();
 
   my $document = KDL::Parser::Document->new();
   until (/\G\z/mgc || (pos() || 0) >= length()) {
-    if (my $node = $self->_parse_node($config)) {
+    if (my $node = $self->_parse_node()) {
       $document->push($node);
     }
     $self->_parse_linespace();
@@ -38,11 +46,11 @@ sub parse {
 }
 
 sub parse_file {
-  my ($self, $filepath, $config) = @_;
+  my ($self, $filepath) = @_;
 
   open my $kdl_fh, '<:encoding(UTF-8)', $filepath or croak($!);
   my $kdl_src = do { local $/ = undef; <$kdl_fh> };
-  $self->parse($kdl_src, $config);
+  $self->parse($kdl_src);
 }
 
 sub _get_grammar {
@@ -78,8 +86,6 @@ sub _get_grammar {
   my $exponent = qr/(E|e)$integer/;
   my $decimal = qr/$integer(\.[0-9][0-9_]*)?$exponent?/;
   my $number = qr/($hex|$octal|$binary|$decimal)/;
-  my $integer_types = qr/([iu](8|16|32|64|size))/;
-  my $float_types = qr/(f(32|64)|decimal(64|128))/;
   return +{
     newline => qr/(\r\n|\n\r|[$newline])/,
     unicode_space => qr/\h/,
@@ -98,9 +104,6 @@ sub _get_grammar {
     string => $string,
     number => $number,
     keyword => $keyword,
-    integer_types => $integer_types,
-    float_types => $float_types,
-    numeric_types => qr{($integer_types|$float_types)}
   };
 }
 
@@ -122,7 +125,7 @@ sub _parse_linespace {
 }
 
 sub _parse_node {
-  my ($self, $config) = @_;
+  my ($self) = @_;
   # slasdash prefixed?
   my $is_sd = $self->_parse_slashdash();
   # annotated?
@@ -145,7 +148,7 @@ sub _parse_node {
     if (!$self->_parse_nodespace()) {
       last;
     }
-    my ($key, $value) = $self->_parse_node_prop_or_arg($config);
+    my ($key, $value) = $self->_parse_node_prop_or_arg();
     if (defined $key) {
       $node_props{$key} = $value;
     } elsif ($value) {
@@ -153,7 +156,7 @@ sub _parse_node {
     }
   }
   $self->_parse_nodespace();
-  my @children = $self->_parse_node_children($config);
+  my @children = $self->_parse_node_children();
   $self->_parse_nodespace();
   $self->_parse_node_terminator();
   if ($is_sd) {
@@ -171,10 +174,10 @@ sub _parse_node {
   # node type callback.
   if (
     defined $node_hash{type}
-    && defined $config->{custom_node_types}
-    && defined $config->{custom_node_types}->{$node_hash{type}}
+    && defined $self->{node_type_tags}
+    && defined $self->{node_type_tags}->{$node_hash{type}}
   ) {
-    my $node = \&config->{custom_node_types}->{$node_hash{type}}(%node_hash);
+    my $node = \&config->{node_type_tags}->{$node_hash{type}}(%node_hash);
     return $node;
   }
   my $node = KDL::Parser::Node->new(%node_hash);
@@ -260,7 +263,7 @@ sub _parse_type_annotation {
 }
 
 sub _parse_node_prop_or_arg {
-  my ($self, $config) = @_;
+  my ($self) = @_;
   my $start_pos = pos();
   my $is_sd = $self->_parse_slashdash();
   if (/\G
@@ -271,11 +274,23 @@ sub _parse_node_prop_or_arg {
   {
     my $type = $self->_parse_ident($+{type});
     return (undef, undef) if $is_sd;
+    my $ident = $self->_parse_ident($+{key});
+    if ($type && exists $self->{value_type_tags}->{$type}) {
+      my $handler = $self->{value_type_tags}->{$type};
+      return (
+        $ident,
+        &$handler(
+          fragment => $+{value},
+          tag => $type,
+          annotated => 1,
+        )
+      );
+    }
     return (
-      $self->_parse_ident($+{key}),
-      KDL::Parser::Value->new((
-          kdl_data => $+{value},
-          type => $type,
+      $ident,
+      KDL::Parser::Value::Any->new((
+          fragment => $+{value},
+          tag => $type,
           annotated => (not (not $+{type}))
         ))
     );
@@ -285,11 +300,22 @@ sub _parse_node_prop_or_arg {
   {
     my $type = $self->_parse_ident($+{type});
     return (undef, undef) if $is_sd;
+    if ($type && exists $self->{value_type_tags}->{$type}) {
+      my $handler = $self->{value_type_tags}->{$type};
+      return (
+        undef,
+        &$handler(
+          fragment => $+{value},
+          tag => $type,
+          annotated => 1
+        )
+      );
+    }
     return (
       undef,
-      KDL::Parser::Value->new((
-          kdl_data => $+{value},
-          type => $type,
+      KDL::Parser::Value::Any->new((
+          fragment => $+{value},
+          tag => $type,
           annotated => (not (not $+{type}))
         ))
     );
