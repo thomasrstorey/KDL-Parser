@@ -31,7 +31,6 @@ sub new {
 sub parse {
   my ($self, $input) = @_;
   local $_ = $input;
-
   $self->_parse_linespace();
 
   my $document = KDL::Parser::Document->new();
@@ -275,7 +274,7 @@ sub _parse_node_prop_or_arg {
     my $type = $self->_parse_ident($+{type});
     return (undef, undef) if $is_sd;
     my $ident = $self->_parse_ident($+{key});
-    if ($type && exists $self->{value_type_tags}->{$type}) {
+    if ($type && defined $self->{value_type_tags}->{$type}) {
       my $handler = $self->{value_type_tags}->{$type};
       return (
         $ident,
@@ -300,7 +299,7 @@ sub _parse_node_prop_or_arg {
   {
     my $type = $self->_parse_ident($+{type});
     return (undef, undef) if $is_sd;
-    if ($type && exists $self->{value_type_tags}->{$type}) {
+    if ($type && defined $self->{value_type_tags}->{$type}) {
       my $handler = $self->{value_type_tags}->{$type};
       return (
         undef,

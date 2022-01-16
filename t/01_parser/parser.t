@@ -2,11 +2,11 @@ use strict;
 use warnings;
 use utf8;
 
-use Test::More tests => 224;
+use Test::More;
 use Test::Exception;
 use KDL::Parser;
 
-my $verbose = 0;
+my $verbose = 1;
 
 sub read_expected {
   my $fn = shift;
@@ -37,7 +37,6 @@ sub fails_to_parse {
     "invalid input kdl throws an exception for $fn"
   );
 }
-
 
 matches_expected('all_node_fields.kdl');
 matches_expected('arg_and_prop_same_name.kdl');
@@ -264,5 +263,7 @@ fails_to_parse('underscore_at_start_of_fraction.kdl');
 fails_to_parse('underscore_at_start_of_hex.kdl');
 fails_to_parse('underscore_at_start_of_int.kdl');
 fails_to_parse('underscore_before_number.kdl');
+
+done_testing();
 
 1;

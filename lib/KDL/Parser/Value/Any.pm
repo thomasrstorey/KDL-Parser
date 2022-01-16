@@ -11,7 +11,7 @@ use KDL::Parser::Error qw(parse_error);
 use Exporter 5.57 'import';
 our @EXPORT_OK = qw/parse_integer parse_float/;
 
-sub format_value {
+sub format {
   my ($self, $config) = @_;
   my $out = '';
   my $grammar = $self->_get_grammar();
@@ -132,18 +132,11 @@ sub parse_integer {
 
 sub parse_float {
     my $value = shift;
-    my $sign = $1 if $value =~ /^([-+])/;
     my $numeric_value = 0;
-    if (defined $sign) {
-      $value =~ s/^[-+]//;
-    }
     $value =~ s/_//g;
     $numeric_value = Math::BigFloat->new($value);
     if ($numeric_value eq 'NaN') {
       parse_error("Invalid value: $value");
-    }
-    if (defined $sign && $sign eq '-') {
-      return $numeric_value * -1;
     }
     return $numeric_value;
 }

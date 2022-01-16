@@ -1,5 +1,10 @@
 package KDL::Parser::Value::Base;
 
+use 5.01800;
+use strict;
+use warnings;
+no warnings "experimental::regex_sets";
+
 use Carp;
 use KDL::Parser::Error qw(parse_error);
 use KDL::Parser::Util qw(unescape_string escape_string format_identifier);
@@ -60,14 +65,15 @@ sub new {
       $self{$key} = $value;
     }
   }
+  my $self = bless \%self, $class;
 
   if (!$self{value}) {
-    my ($type, $value) = $class->parse($self{fragment}, $self{tag});
+    my ($type, $value) = $self->parse($self{fragment}, $self{tag});
     $self{type} = $type;
     $self{value} = $value;
   }
 
-  return bless \%self, $class;
+  return $self;
 }
 
 sub to_kdl {
@@ -77,7 +83,7 @@ sub to_kdl {
     my $tag = format_identifier($self->{tag});
     $out .= "($tag)";
   }
-  $out .= $self->format_value($config);
+  $out .= $self->format($config);
   return $out;
 }
 
@@ -89,11 +95,11 @@ sub format {
 sub parse {
   my $class = shift;
   my ($value, $tag) = @_;
-  $self->error("parse not implemented");
+  parse_error("parse not implemented");
 }
 
 sub error {
-  my $msg = shift;
+  my ($self, $msg) = @_;
   parse_error($msg);
 }
 
