@@ -21,6 +21,12 @@ use KDL::Parser::Value::F32 qw(f32);
 use KDL::Parser::Value::F64 qw(f64);
 use KDL::Parser::Value::Decimal64 qw(decimal64);
 use KDL::Parser::Value::Decimal128 qw(decimal128);
+use KDL::Parser::Value::DateTime qw(datetime);
+use KDL::Parser::Value::Date qw(date);
+use KDL::Parser::Value::Time qw(time);
+use KDL::Parser::Value::Duration qw(duration);
+use KDL::Parser::Value::Country2 qw(country2);
+use KDL::Parser::Value::Country3 qw(country3);
 
 use Exporter 5.57 'import';
 our @EXPORT_OK = qw/get_value_type_tags/;
@@ -48,15 +54,15 @@ sub get_value_type_tags {
     f64 => \&f64,
     # IEEE 754-2008 decimal floating point numbers
     decimal64 => \&decimal64,
-    decimal128 => \&decimal128
-    #'date-time' => undef, # ISO8601 date/time format.
-    #time => undef, # "Time" section of ISO8601.
-    #date => undef, # "Date" section of ISO8601.
-    #duration => , # ISO8601 duration format.
-    #decimal => , # IEEE 754-2008 decimal string format.
-    #currency => , # ISO 4217 currency code.
-    #'country-2' => undef, # ISO 3166-1 alpha-2 country code.
-    #'country-3' => undef, # ISO 3166-1 alpha-3 country code.
+    decimal128 => \&decimal128,
+    'date-time' => \&datetime, # ISO8601 date/time format.
+    time => \&time, # "Time" section of ISO8601.
+    date => \&date, # "Date" section of ISO8601.
+    duration => \&duration, # ISO8601 duration format.
+    decimal => \&f32, # IEEE 754-2008 decimal string format.
+    currency => \&currency, # ISO 4217 currency code.
+    'country-2' => \&country2, # ISO 3166-1 alpha-2 country code.
+    'country-3' => \&country3, # ISO 3166-1 alpha-3 country code.
     #'country-subdivision' => undef, # ISO 3166-2 country subdivision code.
     #email => undef, # RFC5302 email address.
     #'idn-email' => undef, # RFC6531 internationalized email address.

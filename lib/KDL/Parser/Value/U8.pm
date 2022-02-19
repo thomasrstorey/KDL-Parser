@@ -1,8 +1,11 @@
 package KDL::Parser::Value::U8;
-
 use parent KDL::Parser::Value::Base;
-use KDL::Parser::Value::Any qw(parse_integer);
 
+use strict;
+use warnings;
+use 5.01800;
+
+use KDL::Parser::Value::Any qw(parse_integer);
 use Exporter 5.57 'import';
 our @EXPORT_OK = qw/u8/;
 
