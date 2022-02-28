@@ -27,6 +27,8 @@ use KDL::Parser::Value::Time qw(time);
 use KDL::Parser::Value::Duration qw(duration);
 use KDL::Parser::Value::Country2 qw(country2);
 use KDL::Parser::Value::Country3 qw(country3);
+use KDL::Parser::Value::Email qw(email);
+use KDL::Parser::Value::Hostname qw(hostname);
 
 use Exporter 5.57 'import';
 our @EXPORT_OK = qw/get_value_type_tags/;
@@ -63,10 +65,8 @@ sub get_value_type_tags {
     currency => \&currency, # ISO 4217 currency code.
     'country-2' => \&country2, # ISO 3166-1 alpha-2 country code.
     'country-3' => \&country3, # ISO 3166-1 alpha-3 country code.
-    #'country-subdivision' => undef, # ISO 3166-2 country subdivision code.
-    #email => undef, # RFC5302 email address.
-    #'idn-email' => undef, # RFC6531 internationalized email address.
-    #hostname => undef, # RFC1132 internet hostname.
+    email => \&email, # RFC5302 email address.
+    hostname => \&hostname, # RFC1132 internet hostname.
     #'idn-hostname' => undef, # RFC5890 internationalized internet hostname.
     #ipv4 => undef, # RFC2673 dotted-quad IPv4 address.
     #ipv6 => undef, # RFC2373 IPv6 address.
